@@ -13,7 +13,8 @@ const state = {
   oneDrive: { configured: false, connected: false },
   view: 'all',
   selectedNumber: null,
-  editingNumber: null
+  editingNumber: null,
+  operationBusy: false
 };
 
 const viewInfo = {
@@ -74,6 +75,31 @@ function showNotice(message, type = 'ok') {
   if (type === 'error') el.classList.add('notice-error');
   clearTimeout(showNotice.timer);
   showNotice.timer = setTimeout(() => el.classList.add('hidden'), 5000);
+}
+
+function operationKey() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function beginBusy(title, detail = 'Please wait. Do not close this page.') {
+  if (state.operationBusy) return false;
+  state.operationBusy = true;
+  setText($('#busyTitle'), title);
+  setText($('#busyText'), detail);
+  $('#busyOverlay').classList.remove('hidden');
+  document.body.classList.add('is-busy');
+  $('#saveProjectBtn').disabled = true;
+  $('#deleteProjectBtn').disabled = true;
+  return true;
+}
+
+function endBusy() {
+  state.operationBusy = false;
+  $('#busyOverlay').classList.add('hidden');
+  document.body.classList.remove('is-busy');
+  $('#saveProjectBtn').disabled = false;
+  $('#deleteProjectBtn').disabled = false;
 }
 
 function roleLabel(role) {
@@ -500,28 +526,72 @@ function formPayload(form) {
 }
 
 async function saveProject() {
-  const validation = $('#projectValidation'); validation.classList.add('hidden');
+  if (state.operationBusy) return;
+  const validation = $('#projectValidation');
+  validation.classList.add('hidden');
   const payload = formPayload($('#projectForm'));
+  const editing = Boolean(state.editingNumber);
+  const idempotencyKey = operationKey();
+
+  if (!beginBusy(
+    editing ? 'Updating project…' : 'Creating project…',
+    'Saving project data and synchronizing the OneDrive folder. This can take a little time.'
+  )) return;
+
   try {
     let r;
-    if (state.editingNumber) r = await request(`/api/projects/${encodeURIComponent(state.editingNumber)}`, { method: 'PUT', body: payload });
-    else r = await request('/api/projects', { method: 'POST', body: payload });
+    const headers = { 'X-Idempotency-Key': idempotencyKey };
+    if (editing) {
+      r = await request(`/api/projects/${encodeURIComponent(state.editingNumber)}`, {
+        method: 'PUT',
+        headers,
+        body: payload
+      });
+    } else {
+      r = await request('/api/projects', {
+        method: 'POST',
+        headers,
+        body: payload
+      });
+    }
+
     $('#projectDialog').close();
     state.selectedNumber = r.project.orderNumber;
     await loadCoreData();
-    showNotice(state.editingNumber ? 'Project updated.' : `Project ${r.project.orderNumber} created.`);
+    showNotice(editing ? 'Project updated.' : `Project ${r.project.orderNumber} created.`);
   } catch (error) {
-    validation.textContent = error.message; validation.classList.remove('hidden');
+    validation.textContent = error.message;
+    validation.classList.remove('hidden');
+  } finally {
+    endBusy();
   }
 }
 
 async function deleteProject() {
+  if (state.operationBusy) return;
   const p = selectedProject() || state.projects.find(x => x.orderNumber === state.editingNumber);
-  if (!p || !confirm(`Delete project ${p.orderNumber} — ${p.projectName}?`)) return;
+  if (!p || !confirm(`Delete project ${p.orderNumber} — ${p.projectName}?\n\nThe project folder will also be deleted from OneDrive.`)) return;
+
+  const idempotencyKey = operationKey();
+  if (!beginBusy(
+    'Deleting project…',
+    'Removing the project folder from OneDrive and then deleting the project from the register.'
+  )) return;
+
   try {
-    await request(`/api/projects/${encodeURIComponent(p.orderNumber)}`, { method: 'DELETE' });
-    $('#projectDialog').close(); state.selectedNumber = null; await loadCoreData(); showNotice('Project deleted.');
-  } catch (error) { showNotice(error.message, 'error'); }
+    await request(`/api/projects/${encodeURIComponent(p.orderNumber)}`, {
+      method: 'DELETE',
+      headers: { 'X-Idempotency-Key': idempotencyKey }
+    });
+    $('#projectDialog').close();
+    state.selectedNumber = null;
+    await loadCoreData();
+    showNotice('Project and its OneDrive folder were deleted.');
+  } catch (error) {
+    showNotice(error.message, 'error');
+  } finally {
+    endBusy();
+  }
 }
 
 function openCustomers(editItem = null) {
@@ -569,15 +639,23 @@ async function requestUpdateStub() {
 }
 
 async function syncFolder() {
+  if (state.operationBusy) return;
   const p = selectedProject();
   if (!p) return;
+  if (!beginBusy('Synchronizing folder…', 'Checking the project folder in OneDrive.')) return;
   try {
-    const r = await request('/api/folders/sync', { method: 'POST', body: { orderNumber: p.orderNumber } });
+    const r = await request('/api/folders/sync', {
+      method: 'POST',
+      headers: { 'X-Idempotency-Key': operationKey() },
+      body: { orderNumber: p.orderNumber }
+    });
     state.selectedNumber = r.project?.orderNumber || p.orderNumber;
     await loadCoreData();
     showNotice('Project folder synchronized.');
   } catch (error) {
     showNotice(error.message, 'error');
+  } finally {
+    endBusy();
   }
 }
 
