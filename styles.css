@@ -108,3 +108,41 @@ tbody tr.selected { background: #e8f4f1; outline: 1px solid #a8d7cb; outline-off
   .hero-metrics { grid-template-columns: repeat(2, 1fr); }
   .customer-form { grid-template-columns: 1fr; }
 }
+
+/* Users & access */
+.users-page { padding: 16px; display: grid; gap: 16px; }
+.user-add-card { display: grid; grid-template-columns: minmax(200px, 1.3fr) 220px 220px auto; gap: 10px; align-items: end; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: #f8fafb; }
+.user-add-card > div { display: flex; flex-direction: column; gap: 4px; }
+.user-add-card > div span { color: var(--muted); font-size: 12px; }
+.user-add-card input, .inline-select, .password-reset { width: 100%; min-height: 39px; border: 1px solid var(--line); border-radius: 9px; padding: 9px 10px; background: white; outline: none; }
+.user-add-card input:focus, .inline-select:focus, .password-reset:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(11,107,87,.1); }
+.users-table-wrap { max-height: calc(100vh - 420px); border: 1px solid var(--line); border-radius: 12px; }
+.users-table { min-width: 860px; }
+.user-actions { display: flex; gap: 8px; }
+.access-label { display: inline-flex; min-height: 39px; align-items: center; font-weight: 700; color: var(--accent); }
+.hero-panel p:empty { display: none; }
+
+@media (max-width: 900px) {
+  .hero-panel { padding: 24px; border-radius: 18px; }
+  .hero-panel h2 { font-size: 30px; }
+  .user-add-card { grid-template-columns: 1fr 1fr; }
+  .users-table-wrap { max-height: calc(100vh - 360px); }
+}
+
+@media (max-width: 560px) {
+  .app-shell { padding: 10px; }
+  .topbar { gap: 12px; margin-bottom: 14px; }
+  .topbar-actions { width: 100%; }
+  .topbar-actions .btn { width: 100%; }
+  .hero-panel { padding: 20px; }
+  .hero-panel h2 { font-size: 27px; }
+  .hero-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .toolbar { padding: 10px; }
+  .toolbar-left, .toolbar-right { width: 100%; }
+  .toolbar-left .btn { flex: 1 1 auto; }
+  .search-field { width: 100%; flex-direction: column; align-items: stretch; }
+  .table-wrap { max-height: calc(100vh - 300px); }
+  .modal-card { padding: 18px; }
+  .user-add-card { grid-template-columns: 1fr; }
+  .user-add-card .btn { width: 100%; }
+}
