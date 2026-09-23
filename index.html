@@ -44,6 +44,7 @@
             <button id="addProjectBtn" class="btn btn-primary" type="button">+ Add project</button>
             <button id="editProjectBtn" class="btn" type="button" disabled>Edit selected</button>
             <button id="openFolderBtn" class="btn" type="button" disabled>Open folder</button>
+            <button id="syncFolderBtn" class="btn" type="button" disabled>Sync folder</button>
             <button id="mailStubBtn" class="btn" type="button" disabled>Request update</button>
             <button id="manageCustomersBtn" class="btn btn-primary hidden" type="button">Manage customers</button>
           </div>
@@ -116,7 +117,7 @@
         <label class="field"><span>Actual cost</span><input name="costActual" inputmode="decimal" /></label>
         <label class="field"><span>Currency</span><select name="currency"></select></label>
         <label class="field span-2"><span>Contract / document</span><input name="contract" /></label>
-        <label class="field"><span>Folder link</span><input name="folderLink" /></label>
+        <label class="field"><span>Project folder</span><input name="folderLink" readonly placeholder="Managed automatically" /></label>
       </div>
       <div id="projectValidation" class="notice notice-error hidden"></div>
       <div class="modal-actions split">
