@@ -14,18 +14,15 @@
         <h1>Project Register</h1>
       </div>
       <div class="topbar-actions">
-        <span id="connectionBadge" class="badge badge-muted">API not checked</span>
-        <button id="settingsBtn" class="btn btn-ghost" type="button">API settings</button>
-        <button id="authBtn" class="btn btn-dark" type="button">Authorization</button>
+        <button id="authBtn" class="btn btn-dark" type="button">Sign in</button>
       </div>
     </header>
 
     <main>
       <section class="hero-panel">
         <div>
-          <p class="hero-kicker">Excel workflow, moved to the web</p>
           <h2 id="viewTitle">All Projects</h2>
-          <p id="viewSubtitle">The canonical project register. Status pages are filtered views of the same data.</p>
+          <p id="viewSubtitle"></p>
         </div>
         <div class="hero-metrics" id="metrics"></div>
       </section>
@@ -38,6 +35,7 @@
         <button class="tab" data-view="refusal">Projects in Refusal</button>
         <button class="tab" data-view="customers">Customers</button>
         <button class="tab" data-view="audit">Audit Log</button>
+        <button id="usersTab" class="tab hidden" data-view="users">Users &amp; Access</button>
       </nav>
 
       <section class="workspace">
@@ -60,8 +58,8 @@
         <div id="notice" class="notice hidden" role="status"></div>
         <div id="content" class="content-card">
           <div class="empty-state">
-            <h3>Connect to the private backend</h3>
-            <p>Use Authorization to sign in. Live project data is intentionally not stored in this public frontend.</p>
+            <h3>Sign in</h3>
+            <p>Sign in to load data</p>
           </div>
         </div>
       </section>
@@ -75,23 +73,13 @@
         <button class="icon-btn" type="button" data-close-dialog aria-label="Close">×</button>
       </div>
       <div id="authLoggedOut">
-        <label class="field"><span>PIN</span><input id="pinInput" type="password" inputmode="numeric" autocomplete="current-password" required /></label>
-        <p class="help">PIN verification happens only in the private backend. The public site contains no PIN list.</p>
+        <label class="field"><span>Password</span><input id="pinInput" type="password" autocomplete="current-password" required /></label>
         <div class="modal-actions"><button class="btn btn-primary" id="loginBtn" type="submit">Log in</button></div>
       </div>
       <div id="authLoggedIn" class="hidden">
         <div class="identity-card"><strong id="authUserName"></strong><span id="authUserRole"></span></div>
         <div class="modal-actions"><button class="btn btn-danger" id="logoutBtn" type="button">Log out</button></div>
       </div>
-    </form>
-  </dialog>
-
-  <dialog id="settingsDialog" class="modal modal-small">
-    <form method="dialog" class="modal-card" id="settingsForm">
-      <div class="modal-header"><div><div class="eyebrow">CONNECTION</div><h3>Backend settings</h3></div><button class="icon-btn" type="button" data-close-dialog aria-label="Close">×</button></div>
-      <label class="field"><span>Private API URL</span><input id="apiUrlInput" type="url" placeholder="http://localhost:8787" required /></label>
-      <p class="help">The URL is saved only in this browser. Production should use HTTPS.</p>
-      <div class="modal-actions"><button class="btn btn-primary" type="submit">Save & check</button></div>
     </form>
   </dialog>
 
@@ -140,7 +128,7 @@
 
   <dialog id="customerDialog" class="modal modal-wide">
     <div class="modal-card">
-      <div class="modal-header"><div><div class="eyebrow">SYSTEM LIST</div><h3>Customer management</h3></div><button class="icon-btn" id="closeCustomerDialog" aria-label="Close">×</button></div>
+      <div class="modal-header"><div><div class="eyebrow">CUSTOMERS</div><h3>Customer management</h3></div><button class="icon-btn" id="closeCustomerDialog" aria-label="Close">×</button></div>
       <form id="customerForm" class="customer-form">
         <input type="hidden" name="id" />
         <label class="field"><span>Customer *</span><input name="customer" required /></label>
