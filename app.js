@@ -2,7 +2,7 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 const state = {
-  apiUrl: localStorage.getItem('projectRegisterApiUrl') || 'http://localhost:8787',
+  apiUrl: localStorage.getItem('projectRegisterApiUrl') || 'https://project-register-api.onrender.com',
   token: sessionStorage.getItem('projectRegisterToken') || '',
   user: null,
   projects: [],
