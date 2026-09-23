@@ -2,26 +2,28 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 const state = {
-  apiUrl: localStorage.getItem('projectRegisterApiUrl') || 'https://project-register-api.onrender.com',
+  apiUrl: 'https://project-register-api.onrender.com',
   token: sessionStorage.getItem('projectRegisterToken') || '',
   user: null,
   projects: [],
   customers: [],
   lookups: {},
   audit: [],
+  users: [],
   view: 'all',
   selectedNumber: null,
   editingNumber: null
 };
 
 const viewInfo = {
-  all: ['All Projects', 'The canonical project register. Status pages are filtered views of the same data.'],
-  plan: ['Projects in Plan', 'In plan, Offer Preparation and Awaiting Client Decision.'],
-  progress: ['Projects in Progress', 'Confirmed and In Progress projects.'],
-  completed: ['Completed Projects', 'Completed projects. This status group is terminal.'],
-  refusal: ['Projects in Refusal', 'Rejected projects. This status group is terminal.'],
-  customers: ['Customers', 'Customer and representative directory migrated from System_List.'],
-  audit: ['Audit Log', 'Change history migrated from _AuditLog plus new web edits.']
+  all: ['All Projects', ''],
+  plan: ['Projects in Plan', 'Projects currently in planning.'],
+  progress: ['Projects in Progress', 'Active projects.'],
+  completed: ['Completed Projects', 'Completed projects.'],
+  refusal: ['Projects in Refusal', 'Rejected projects.'],
+  customers: ['Customers', 'Customer contacts.'],
+  audit: ['Audit Log', 'Project change history.'],
+  users: ['Users & Access', 'Manage users, passwords and access rights.']
 };
 
 const projectColumns = [
@@ -34,7 +36,13 @@ const projectColumns = [
   ['contract', 'Contract / Document'], ['folderLink', 'Project Folder']
 ];
 
-function api(path) { return `${state.apiUrl.replace(/\/$/, '')}${path}`; }
+const roleOptions = [
+  ['viewer', 'View only'],
+  ['pm', 'Edit own projects'],
+  ['localAdmin', 'Edit all projects']
+];
+
+function api(path) { return `${state.apiUrl}${path}`; }
 
 async function request(path, options = {}) {
   const headers = { ...(options.headers || {}) };
@@ -45,7 +53,7 @@ async function request(path, options = {}) {
   }
   let response;
   try { response = await fetch(api(path), { ...options, headers }); }
-  catch (error) { throw new Error(`Cannot reach private backend at ${state.apiUrl}`); }
+  catch { throw new Error('Connection unavailable. Please try again.'); }
   let data = {};
   try { data = await response.json(); } catch {}
   if (!response.ok) {
@@ -64,25 +72,23 @@ function showNotice(message, type = 'ok') {
   el.classList.remove('hidden', 'notice-error');
   if (type === 'error') el.classList.add('notice-error');
   clearTimeout(showNotice.timer);
-  showNotice.timer = setTimeout(() => el.classList.add('hidden'), 5500);
+  showNotice.timer = setTimeout(() => el.classList.add('hidden'), 5000);
 }
 
-function setConnection(ok, text) {
-  const badge = $('#connectionBadge');
-  setText(badge, text);
-  badge.className = `badge ${ok ? 'badge-ok' : 'badge-bad'}`;
+function roleLabel(role) {
+  if (role === 'admin') return 'Main administrator';
+  if (role === 'localAdmin') return 'Edit all projects';
+  if (role === 'pm') return 'Edit own projects';
+  if (role === 'viewer') return 'View only';
+  return role || '';
 }
 
-async function healthCheck() {
-  try {
-    const r = await fetch(api('/api/health'));
-    if (!r.ok) throw new Error();
-    setConnection(true, 'Private API connected');
-    return true;
-  } catch {
-    setConnection(false, 'Private API unavailable');
-    return false;
-  }
+function canEditProjects() {
+  return state.user?.access === 'edit_all' || state.user?.access === 'edit_own';
+}
+
+function canEditAll() {
+  return state.user?.access === 'edit_all';
 }
 
 function clearSession() {
@@ -91,7 +97,10 @@ function clearSession() {
   state.projects = [];
   state.customers = [];
   state.audit = [];
+  state.users = [];
+  state.selectedNumber = null;
   sessionStorage.removeItem('projectRegisterToken');
+  if (state.view === 'users') state.view = 'all';
   updateAuthUi();
   render();
 }
@@ -101,9 +110,9 @@ function updateAuthUi() {
   $('#authLoggedOut').classList.toggle('hidden', loggedIn);
   $('#authLoggedIn').classList.toggle('hidden', !loggedIn);
   setText($('#authUserName'), state.user?.username || '');
-  setText($('#authUserRole'), state.user?.role || '');
-  setText($('#authBtn'), loggedIn ? state.user.username : 'Authorization');
-  $('#addProjectBtn').disabled = !loggedIn;
+  setText($('#authUserRole'), roleLabel(state.user?.role));
+  setText($('#authBtn'), loggedIn ? state.user.username : 'Sign in');
+  $('#usersTab').classList.toggle('hidden', !state.user?.canManageUsers);
 }
 
 async function restoreSession() {
@@ -124,12 +133,24 @@ async function loadCoreData() {
   state.customers = customerResult.customers || [];
   state.lookups = lookupResult.lookups || {};
   if (state.view === 'audit') await loadAudit();
+  if (state.view === 'users' && state.user.canManageUsers) await loadUsers();
   render();
 }
 
 async function loadAudit() {
   const r = await request('/api/audit');
   state.audit = r.auditLog || [];
+}
+
+async function loadUsers() {
+  if (!state.user?.canManageUsers) return;
+  const r = await request('/api/users');
+  state.users = r.users || [];
+}
+
+async function refreshLookups() {
+  const r = await request('/api/lookups');
+  state.lookups = r.lookups || {};
 }
 
 function projectGroup(project) {
@@ -168,7 +189,7 @@ function renderProjectTable() {
   const content = $('#content');
   const projects = filteredProjects();
   if (!state.user) {
-    content.innerHTML = '<div class="empty-state"><div><h3>Authorization required</h3><p>Sign in to load data from the private repository backend.</p></div></div>';
+    content.innerHTML = '<div class="empty-state"><div><h3>Sign in</h3><p>Sign in to load data</p></div></div>';
     return;
   }
   const wrap = document.createElement('div'); wrap.className = 'table-wrap';
@@ -182,7 +203,7 @@ function renderProjectTable() {
     tr.dataset.number = p.orderNumber;
     if (p.orderNumber === state.selectedNumber) tr.classList.add('selected');
     tr.addEventListener('click', () => selectProject(p.orderNumber));
-    tr.addEventListener('dblclick', () => { selectProject(p.orderNumber); openProjectEditor(p); });
+    if (p.canEdit) tr.addEventListener('dblclick', () => openProjectEditor(p));
     for (const [key] of projectColumns) {
       const td = document.createElement('td');
       if (key === 'status') {
@@ -213,7 +234,8 @@ function renderCustomers() {
   rows.forEach(c => {
     const tr = document.createElement('tr');
     [c.customer,c.representative,c.phone,c.email].forEach(v => { const td=document.createElement('td'); td.textContent=escapeText(v); tr.append(td); });
-    tr.addEventListener('dblclick', () => openCustomers(c)); body.append(tr);
+    if (canEditAll()) tr.addEventListener('dblclick', () => openCustomers(c));
+    body.append(tr);
   });
   table.append(body); wrap.append(table); content.replaceChildren(wrap);
 }
@@ -243,28 +265,148 @@ function renderAudit() {
   table.append(body); wrap.append(table); content.replaceChildren(wrap);
 }
 
+function makeRoleSelect(value, disabled = false) {
+  const select = document.createElement('select');
+  select.className = 'inline-select';
+  for (const [role, label] of roleOptions) {
+    const opt = document.createElement('option'); opt.value = role; opt.textContent = label;
+    if (role === value) opt.selected = true;
+    select.append(opt);
+  }
+  select.disabled = disabled;
+  return select;
+}
+
+function renderUsers() {
+  const content = $('#content');
+  if (!state.user?.canManageUsers) {
+    content.innerHTML = '<div class="empty-state"><div><h3>Access denied</h3></div></div>';
+    return;
+  }
+
+  const container = document.createElement('div');
+  container.className = 'users-page';
+
+  const addCard = document.createElement('form');
+  addCard.className = 'user-add-card';
+  addCard.innerHTML = '<div><strong>Add user</strong><span>Create a user and choose the access level.</span></div>';
+  const nameInput = document.createElement('input'); nameInput.placeholder = 'User name'; nameInput.required = true;
+  const roleSelect = makeRoleSelect('pm');
+  const passwordInput = document.createElement('input'); passwordInput.type = 'password'; passwordInput.placeholder = 'Password'; passwordInput.required = true;
+  const addBtn = document.createElement('button'); addBtn.className = 'btn btn-primary'; addBtn.type = 'submit'; addBtn.textContent = 'Add user';
+  addCard.append(nameInput, roleSelect, passwordInput, addBtn);
+  addCard.addEventListener('submit', async e => {
+    e.preventDefault();
+    try {
+      await request('/api/users', { method: 'POST', body: { username: nameInput.value, role: roleSelect.value, password: passwordInput.value } });
+      await Promise.all([loadUsers(), refreshLookups()]);
+      renderUsers();
+      showNotice('User added.');
+    } catch (error) { showNotice(error.message, 'error'); }
+  });
+  container.append(addCard);
+
+  const q = $('#searchInput').value.trim().toLowerCase();
+  const users = state.users.filter(u => !q || u.username.toLowerCase().includes(q) || roleLabel(u.role).toLowerCase().includes(q));
+
+  const wrap = document.createElement('div'); wrap.className = 'table-wrap users-table-wrap';
+  const table = document.createElement('table'); table.className = 'users-table';
+  table.innerHTML = '<thead><tr><th>User</th><th>Access</th><th>Password</th><th>Actions</th></tr></thead>';
+  const body = document.createElement('tbody');
+
+  for (const u of users) {
+    const tr = document.createElement('tr');
+
+    const userTd = document.createElement('td');
+    const strong = document.createElement('strong'); strong.textContent = u.username; userTd.append(strong);
+
+    const accessTd = document.createElement('td');
+    let accessControl;
+    if (u.role === 'admin') {
+      accessControl = document.createElement('span'); accessControl.className = 'access-label'; accessControl.textContent = 'Main administrator';
+    } else {
+      accessControl = makeRoleSelect(u.role);
+    }
+    accessTd.append(accessControl);
+
+    const passwordTd = document.createElement('td');
+    const pass = document.createElement('input'); pass.type = 'password'; pass.className = 'password-reset'; pass.placeholder = 'New password (optional)';
+    passwordTd.append(pass);
+
+    const actionsTd = document.createElement('td'); actionsTd.className = 'user-actions';
+    const save = document.createElement('button'); save.className = 'btn'; save.type = 'button'; save.textContent = 'Save';
+    save.addEventListener('click', async () => {
+      const payload = {};
+      if (u.role !== 'admin') payload.role = accessControl.value;
+      if (pass.value) payload.password = pass.value;
+      if (!Object.keys(payload).length) return showNotice('Nothing to save.');
+      try {
+        await request(`/api/users/${encodeURIComponent(u.username)}`, { method: 'PUT', body: payload });
+        pass.value = '';
+        await Promise.all([loadUsers(), refreshLookups()]);
+        renderUsers();
+        showNotice('User updated.');
+      } catch (error) { showNotice(error.message, 'error'); }
+    });
+    actionsTd.append(save);
+
+    if (u.role !== 'admin') {
+      const del = document.createElement('button'); del.className = 'btn btn-danger'; del.type = 'button'; del.textContent = 'Delete';
+      del.addEventListener('click', async () => {
+        if (!confirm(`Delete user ${u.username}?`)) return;
+        try {
+          await request(`/api/users/${encodeURIComponent(u.username)}`, { method: 'DELETE' });
+          await Promise.all([loadUsers(), refreshLookups()]);
+          renderUsers();
+          showNotice('User deleted.');
+        } catch (error) { showNotice(error.message, 'error'); }
+      });
+      actionsTd.append(del);
+    }
+
+    tr.append(userTd, accessTd, passwordTd, actionsTd);
+    body.append(tr);
+  }
+
+  table.append(body); wrap.append(table); container.append(wrap);
+  content.replaceChildren(container);
+}
+
 function renderToolbar() {
   const projectView = ['all','plan','progress','completed','refusal'].includes(state.view);
-  ['addProjectBtn','editProjectBtn','openFolderBtn','mailStubBtn'].forEach(id => $(`#${id}`).classList.toggle('hidden', !projectView));
-  $('#manageCustomersBtn').classList.toggle('hidden', state.view !== 'customers');
+  const canEdit = canEditProjects();
+  $('#addProjectBtn').classList.toggle('hidden', !projectView || !canEdit);
+  $('#editProjectBtn').classList.toggle('hidden', !projectView || !canEdit);
+  $('#openFolderBtn').classList.toggle('hidden', !projectView);
+  $('#mailStubBtn').classList.toggle('hidden', !projectView);
+  $('#manageCustomersBtn').classList.toggle('hidden', state.view !== 'customers' || !canEditAll());
   const p = selectedProject();
   $('#editProjectBtn').disabled = !p || !p.canEdit;
   $('#openFolderBtn').disabled = !p || !p.folderLink;
   $('#mailStubBtn').disabled = !p || !state.user;
-  $('#manageCustomersBtn').disabled = !state.user;
 }
 
 function render() {
-  const [title, subtitle] = viewInfo[state.view];
-  setText($('#viewTitle'), title); setText($('#viewSubtitle'), subtitle);
-  renderMetrics(); updateAuthUi(); renderToolbar();
+  const [title, subtitle] = viewInfo[state.view] || viewInfo.all;
+  setText($('#viewTitle'), title);
+  setText($('#viewSubtitle'), subtitle);
+  $('#viewSubtitle').classList.toggle('hidden', !subtitle);
+  renderMetrics();
+  updateAuthUi();
+  renderToolbar();
   if (state.view === 'customers') renderCustomers();
   else if (state.view === 'audit') renderAudit();
+  else if (state.view === 'users') renderUsers();
   else renderProjectTable();
 }
 
 function selectedProject() { return state.projects.find(p => p.orderNumber === state.selectedNumber) || null; }
-function selectProject(number) { state.selectedNumber = number; renderToolbar(); renderProjectTable(); }
+
+function selectProject(number) {
+  state.selectedNumber = number;
+  $$('#content tbody tr[data-number]').forEach(row => row.classList.toggle('selected', row.dataset.number === number));
+  renderToolbar();
+}
 
 function option(select, value, label = value) {
   const o = document.createElement('option'); o.value = value; o.textContent = label; select.append(o);
@@ -319,8 +461,7 @@ function setFormProject(project = {}) {
   const form = $('#projectForm');
   populateProjectSelects();
   for (const el of form.elements) {
-    if (!el.name) continue;
-    if (el.name === 'customerRepresentative') continue;
+    if (!el.name || el.name === 'customerRepresentative') continue;
     if (el.name in project) el.value = project[el.name] ?? '';
     else if (!state.editingNumber) el.value = '';
   }
@@ -328,7 +469,7 @@ function setFormProject(project = {}) {
   if (project.customerRepresentative) form.elements.customerRepresentative.value = project.customerRepresentative;
   if (project.customerPhone != null) form.elements.customerPhone.value = project.customerPhone;
   if (project.customerEmail != null) form.elements.customerEmail.value = project.customerEmail;
-  if (state.user?.role === 'pm') {
+  if (state.user?.access === 'edit_own') {
     form.elements.projectManager.value = project.projectManager || state.user.username;
     form.elements.projectManager.disabled = true;
   } else form.elements.projectManager.disabled = false;
@@ -337,13 +478,14 @@ function setFormProject(project = {}) {
 
 function openProjectEditor(project = null) {
   if (!state.user) return $('#authDialog').showModal();
-  if (project && !project.canEdit) return showNotice('Your role does not allow editing this project.', 'error');
+  if (!canEditProjects()) return showNotice('Your access level is read-only.', 'error');
+  if (project && !project.canEdit) return showNotice('You do not have permission to edit this project.', 'error');
   state.editingNumber = project?.orderNumber || null;
   setText($('#projectModeLabel'), project ? `PROJECT ${project.orderNumber}` : 'NEW PROJECT');
   setText($('#projectDialogTitle'), project ? 'Edit project' : 'Add project');
   $('#deleteProjectBtn').classList.toggle('hidden', !project);
   $('#projectValidation').classList.add('hidden');
-  setFormProject(project || { status: 'In plan', projectManager: state.user?.role === 'pm' ? state.user.username : '' });
+  setFormProject(project || { status: 'In plan', projectManager: state.user?.access === 'edit_own' ? state.user.username : '' });
   $('#projectDialog').showModal();
 }
 
@@ -381,6 +523,7 @@ async function deleteProject() {
 
 function openCustomers(editItem = null) {
   if (!state.user) return $('#authDialog').showModal();
+  if (!canEditAll()) return showNotice('You do not have permission to edit customers.', 'error');
   renderCustomerDialogRows();
   const f = $('#customerForm'); f.reset(); f.elements.id.value = '';
   if (editItem) Object.entries(editItem).forEach(([k,v]) => { if (f.elements[k]) f.elements[k].value = v ?? ''; });
@@ -410,8 +553,10 @@ async function saveCustomer() {
 
 async function deleteCustomer(c) {
   if (!confirm(`Delete ${c.customer} / ${c.representative}?`)) return;
-  try { await request(`/api/customers/${encodeURIComponent(c.id)}`, {method:'DELETE'}); const r=await request('/api/customers');state.customers=r.customers||[];renderCustomerDialogRows();render(); }
-  catch(error){showNotice(error.message,'error');}
+  try {
+    await request(`/api/customers/${encodeURIComponent(c.id)}`, {method:'DELETE'});
+    const r=await request('/api/customers');state.customers=r.customers||[];renderCustomerDialogRows();render();
+  } catch(error){showNotice(error.message,'error');}
 }
 
 async function requestUpdateStub() {
@@ -423,17 +568,21 @@ async function requestUpdateStub() {
 function openFolder() {
   const p=selectedProject(); if(!p?.folderLink)return;
   if (/^https?:\/\//i.test(p.folderLink)) window.open(p.folderLink,'_blank','noopener');
-  else showNotice('This project uses a local/OneDrive filesystem path. Browsers cannot open or move it reliably; the link is preserved for the later Microsoft Graph integration.', 'error');
+  else showNotice('This folder link is not available yet.', 'error');
 }
 
-function activateView(view) {
+async function activateView(view) {
+  if (view === 'users' && !state.user?.canManageUsers) return;
   state.view=view; state.selectedNumber=null;
   $$('.tab').forEach(t=>t.classList.toggle('active',t.dataset.view===view));
   $('#searchInput').value='';
-  if(view==='audit'&&state.user) loadAudit().then(render).catch(e=>showNotice(e.message,'error')); else render();
+  try {
+    if(view==='audit'&&state.user) await loadAudit();
+    if(view==='users'&&state.user?.canManageUsers) await loadUsers();
+    render();
+  } catch(e) { showNotice(e.message,'error'); }
 }
 
-// Events
 $$('.tab').forEach(btn=>btn.addEventListener('click',()=>activateView(btn.dataset.view)));
 $('#searchInput').addEventListener('input',render);
 $('#addProjectBtn').addEventListener('click',()=>openProjectEditor());
@@ -443,17 +592,18 @@ $('#mailStubBtn').addEventListener('click',requestUpdateStub);
 $('#manageCustomersBtn').addEventListener('click',()=>openCustomers());
 $('#authBtn').addEventListener('click',()=>$('#authDialog').showModal());
 $$('[data-close-dialog]').forEach(btn => btn.addEventListener('click', () => btn.closest('dialog')?.close()));
-$('#settingsBtn').addEventListener('click',()=>{ $('#apiUrlInput').value=state.apiUrl; $('#settingsDialog').showModal(); });
 
 $('#authForm').addEventListener('submit',async e=>{
   e.preventDefault(); if(state.user)return;
   try {
-    const r=await request('/api/auth/login',{method:'POST',body:{pin:$('#pinInput').value}});
-    state.token=r.token;state.user=r.user;sessionStorage.setItem('projectRegisterToken',state.token);$('#pinInput').value='';$('#authDialog').close();await loadCoreData();showNotice(`Logged in as ${state.user.username}.`);
+    const r=await request('/api/auth/login',{method:'POST',body:{password:$('#pinInput').value}});
+    state.token=r.token;state.user=r.user;sessionStorage.setItem('projectRegisterToken',state.token);$('#pinInput').value='';$('#authDialog').close();await loadCoreData();showNotice(`Signed in as ${state.user.username}.`);
   } catch(error){showNotice(error.message,'error');}
 });
-$('#logoutBtn').addEventListener('click',async()=>{try{await request('/api/auth/logout',{method:'POST'});}catch{}$('#authDialog').close();clearSession();showNotice('Logged out.');});
-$('#settingsForm').addEventListener('submit',async e=>{e.preventDefault();state.apiUrl=$('#apiUrlInput').value.replace(/\/$/,'');localStorage.setItem('projectRegisterApiUrl',state.apiUrl);clearSession();$('#settingsDialog').close();await healthCheck();});
+$('#logoutBtn').addEventListener('click',async()=>{
+  try{await request('/api/auth/logout',{method:'POST'});}catch{}
+  $('#authDialog').close();clearSession();showNotice('Signed out.');
+});
 $('#projectForm').addEventListener('submit',e=>{e.preventDefault();saveProject();});
 $('#deleteProjectBtn').addEventListener('click',deleteProject);
 $('#projectForm').elements.customer.addEventListener('change',()=>refreshRepresentativeOptions());
@@ -463,6 +613,5 @@ $('#customerForm').addEventListener('submit',e=>{e.preventDefault();saveCustomer
 $('#resetCustomerBtn').addEventListener('click',()=>{$('#customerForm').reset();$('#customerForm').elements.id.value='';});
 $('#closeCustomerDialog').addEventListener('click',()=>$('#customerDialog').close());
 
-await healthCheck();
 await restoreSession();
 render();
