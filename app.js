@@ -118,6 +118,10 @@ function canEditAll() {
   return state.user?.access === 'edit_all';
 }
 
+function canEditCustomers() {
+  return state.user?.access === 'edit_all' || state.user?.access === 'edit_own';
+}
+
 function clearSession() {
   state.token = '';
   state.user = null;
@@ -255,8 +259,8 @@ function renderCustomers() {
   const q = $('#searchInput').value.trim().toLowerCase();
   const rows = state.customers.filter(x => !q || Object.values(x).some(v => String(v ?? '').toLowerCase().includes(q)));
   const wrap = document.createElement('div'); wrap.className = 'table-wrap';
-  const table = document.createElement('table'); table.style.minWidth = canEditAll() ? '1040px' : '900px';
-  table.innerHTML = canEditAll()
+  const table = document.createElement('table'); table.style.minWidth = canEditCustomers() ? '1040px' : '900px';
+  table.innerHTML = canEditCustomers()
     ? '<thead><tr><th>Customer</th><th>Representative</th><th>Phone</th><th>Email</th><th>Actions</th></tr></thead>'
     : '<thead><tr><th>Customer</th><th>Representative</th><th>Phone</th><th>Email</th></tr></thead>';
   const body = document.createElement('tbody');
@@ -269,7 +273,7 @@ function renderCustomers() {
       tr.append(td);
     });
 
-    if (canEditAll()) {
+    if (canEditCustomers()) {
       const actions = document.createElement('td');
       actions.className = 'user-actions';
 
@@ -444,7 +448,7 @@ function renderToolbar() {
   $('#openFolderBtn').classList.toggle('hidden', !projectView);
   $('#syncFolderBtn').classList.toggle('hidden', !projectView || !canEdit);
   $('#mailStubBtn').classList.toggle('hidden', !projectView);
-  $('#manageCustomersBtn').classList.toggle('hidden', state.view !== 'customers' || !canEditAll());
+  $('#manageCustomersBtn').classList.toggle('hidden', state.view !== 'customers' || !canEditCustomers());
   const p = selectedProject();
   $('#editProjectBtn').disabled = !p || !p.canEdit;
   $('#openFolderBtn').disabled = !p || !/^https?:\/\//i.test(String(p.folderLink || ''));
@@ -633,7 +637,7 @@ async function deleteProject() {
 
 function openCustomers(editItem = null) {
   if (!state.user) return $('#authDialog').showModal();
-  if (!canEditAll()) return showNotice('You do not have permission to edit customers.', 'error');
+  if (!canEditCustomers()) return showNotice('You do not have permission to edit customers.', 'error');
   renderCustomerDialogRows();
   const f = $('#customerForm'); f.reset(); f.elements.id.value = '';
   if (editItem) Object.entries(editItem).forEach(([k,v]) => { if (f.elements[k]) f.elements[k].value = v ?? ''; });
