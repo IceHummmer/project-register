@@ -379,11 +379,13 @@ function renderToolbar() {
   $('#addProjectBtn').classList.toggle('hidden', !projectView || !canEdit);
   $('#editProjectBtn').classList.toggle('hidden', !projectView || !canEdit);
   $('#openFolderBtn').classList.toggle('hidden', !projectView);
+  $('#syncFolderBtn').classList.toggle('hidden', !projectView || !canEdit);
   $('#mailStubBtn').classList.toggle('hidden', !projectView);
   $('#manageCustomersBtn').classList.toggle('hidden', state.view !== 'customers' || !canEditAll());
   const p = selectedProject();
   $('#editProjectBtn').disabled = !p || !p.canEdit;
-  $('#openFolderBtn').disabled = !p || !p.folderLink;
+  $('#openFolderBtn').disabled = !p || !/^https?:\/\//i.test(String(p.folderLink || ''));
+  $('#syncFolderBtn').disabled = !p || !p.canEdit;
   $('#mailStubBtn').disabled = !p || !state.user;
 }
 
@@ -566,10 +568,23 @@ async function requestUpdateStub() {
   catch(error){showNotice(error.message,'error');}
 }
 
+async function syncFolder() {
+  const p = selectedProject();
+  if (!p) return;
+  try {
+    const r = await request('/api/folders/sync', { method: 'POST', body: { orderNumber: p.orderNumber } });
+    state.selectedNumber = r.project?.orderNumber || p.orderNumber;
+    await loadCoreData();
+    showNotice('Project folder synchronized.');
+  } catch (error) {
+    showNotice(error.message, 'error');
+  }
+}
+
 function openFolder() {
   const p=selectedProject(); if(!p?.folderLink)return;
   if (/^https?:\/\//i.test(p.folderLink)) window.open(p.folderLink,'_blank','noopener');
-  else showNotice('This folder link is not available yet.', 'error');
+  else showNotice('Synchronize the project folder first.', 'error');
 }
 
 async function activateView(view) {
@@ -589,6 +604,7 @@ $('#searchInput').addEventListener('input',render);
 $('#addProjectBtn').addEventListener('click',()=>openProjectEditor());
 $('#editProjectBtn').addEventListener('click',()=>{const p=selectedProject();if(p)openProjectEditor(p);});
 $('#openFolderBtn').addEventListener('click',openFolder);
+$('#syncFolderBtn').addEventListener('click',syncFolder);
 $('#mailStubBtn').addEventListener('click',requestUpdateStub);
 $('#manageCustomersBtn').addEventListener('click',()=>openCustomers());
 $('#authBtn').addEventListener('click',()=>$('#authDialog').showModal());
