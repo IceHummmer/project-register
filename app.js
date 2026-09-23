@@ -729,12 +729,34 @@ $('#manageCustomersBtn').addEventListener('click',()=>openCustomers());
 $('#authBtn').addEventListener('click',()=>$('#authDialog').showModal());
 $$('[data-close-dialog]').forEach(btn => btn.addEventListener('click', () => btn.closest('dialog')?.close()));
 
-$('#authForm').addEventListener('submit',async e=>{
-  e.preventDefault(); if(state.user)return;
+$('#authForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (state.user || state.operationBusy) return;
+
+  const password = $('#pinInput').value;
+  if (!password) return;
+
+  if (!beginBusy('Signing in…', 'Checking your access and loading project data.')) return;
+  $('#loginBtn').disabled = true;
+
   try {
-    const r=await request('/api/auth/login',{method:'POST',body:{password:$('#pinInput').value}});
-    state.token=r.token;state.user=r.user;sessionStorage.setItem('projectRegisterToken',state.token);$('#pinInput').value='';$('#authDialog').close();await loadCoreData();showNotice(`Signed in as ${state.user.username}.`);
-  } catch(error){showNotice(error.message,'error');}
+    const r = await request('/api/auth/login', {
+      method: 'POST',
+      body: { password }
+    });
+    state.token = r.token;
+    state.user = r.user;
+    sessionStorage.setItem('projectRegisterToken', state.token);
+    $('#pinInput').value = '';
+    $('#authDialog').close();
+    await loadCoreData();
+    showNotice(`Signed in as ${state.user.username}.`);
+  } catch (error) {
+    showNotice(error.message, 'error');
+  } finally {
+    $('#loginBtn').disabled = false;
+    endBusy();
+  }
 });
 $('#logoutBtn').addEventListener('click',async()=>{
   try{await request('/api/auth/logout',{method:'POST'});}catch{}
