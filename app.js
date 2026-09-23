@@ -255,16 +255,53 @@ function renderCustomers() {
   const q = $('#searchInput').value.trim().toLowerCase();
   const rows = state.customers.filter(x => !q || Object.values(x).some(v => String(v ?? '').toLowerCase().includes(q)));
   const wrap = document.createElement('div'); wrap.className = 'table-wrap';
-  const table = document.createElement('table'); table.style.minWidth = '900px';
-  table.innerHTML = '<thead><tr><th>Customer</th><th>Representative</th><th>Phone</th><th>Email</th></tr></thead>';
+  const table = document.createElement('table'); table.style.minWidth = canEditAll() ? '1040px' : '900px';
+  table.innerHTML = canEditAll()
+    ? '<thead><tr><th>Customer</th><th>Representative</th><th>Phone</th><th>Email</th><th>Actions</th></tr></thead>'
+    : '<thead><tr><th>Customer</th><th>Representative</th><th>Phone</th><th>Email</th></tr></thead>';
   const body = document.createElement('tbody');
+
   rows.forEach(c => {
     const tr = document.createElement('tr');
-    [c.customer,c.representative,c.phone,c.email].forEach(v => { const td=document.createElement('td'); td.textContent=escapeText(v); tr.append(td); });
-    if (canEditAll()) tr.addEventListener('dblclick', () => openCustomers(c));
+    [c.customer,c.representative,c.phone,c.email].forEach(v => {
+      const td=document.createElement('td');
+      td.textContent=escapeText(v);
+      tr.append(td);
+    });
+
+    if (canEditAll()) {
+      const actions = document.createElement('td');
+      actions.className = 'user-actions';
+
+      const edit = document.createElement('button');
+      edit.className = 'btn';
+      edit.type = 'button';
+      edit.textContent = 'Edit';
+      edit.addEventListener('click', e => {
+        e.stopPropagation();
+        openCustomers(c);
+      });
+
+      const del = document.createElement('button');
+      del.className = 'btn btn-danger';
+      del.type = 'button';
+      del.textContent = 'Delete';
+      del.addEventListener('click', e => {
+        e.stopPropagation();
+        deleteCustomer(c);
+      });
+
+      actions.append(edit, del);
+      tr.append(actions);
+      tr.addEventListener('dblclick', () => openCustomers(c));
+    }
+
     body.append(tr);
   });
-  table.append(body); wrap.append(table); content.replaceChildren(wrap);
+
+  table.append(body);
+  wrap.append(table);
+  content.replaceChildren(wrap);
 }
 
 function shortProjectDiff(entry) {
