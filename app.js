@@ -10,6 +10,7 @@ const state = {
   lookups: {},
   audit: [],
   users: [],
+  oneDrive: { configured: false, connected: false },
   view: 'all',
   selectedNumber: null,
   editingNumber: null
