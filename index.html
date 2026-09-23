@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Project Register</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">NOVEKA · PROJECT CONTROL</div>
+        <h1>Project Register</h1>
+      </div>
+      <div class="topbar-actions">
+        <span id="connectionBadge" class="badge badge-muted">API not checked</span>
+        <button id="settingsBtn" class="btn btn-ghost" type="button">API settings</button>
+        <button id="authBtn" class="btn btn-dark" type="button">Authorization</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero-panel">
+        <div>
+          <p class="hero-kicker">Excel workflow, moved to the web</p>
+          <h2 id="viewTitle">All Projects</h2>
+          <p id="viewSubtitle">The canonical project register. Status pages are filtered views of the same data.</p>
+        </div>
+        <div class="hero-metrics" id="metrics"></div>
+      </section>
+
+      <nav class="tabs" aria-label="Register views">
+        <button class="tab active" data-view="all">All Projects</button>
+        <button class="tab" data-view="plan">Projects in Plan</button>
+        <button class="tab" data-view="progress">Projects in Progress</button>
+        <button class="tab" data-view="completed">Completed Projects</button>
+        <button class="tab" data-view="refusal">Projects in Refusal</button>
+        <button class="tab" data-view="customers">Customers</button>
+        <button class="tab" data-view="audit">Audit Log</button>
+      </nav>
+
+      <section class="workspace">
+        <div class="toolbar">
+          <div class="toolbar-left">
+            <button id="addProjectBtn" class="btn btn-primary" type="button">+ Add project</button>
+            <button id="editProjectBtn" class="btn" type="button" disabled>Edit selected</button>
+            <button id="openFolderBtn" class="btn" type="button" disabled>Open folder</button>
+            <button id="mailStubBtn" class="btn" type="button" disabled>Request update</button>
+            <button id="manageCustomersBtn" class="btn btn-primary hidden" type="button">Manage customers</button>
+          </div>
+          <div class="toolbar-right">
+            <label class="search-field">
+              <span>Search</span>
+              <input id="searchInput" type="search" placeholder="Number, project, customer…" autocomplete="off" />
+            </label>
+          </div>
+        </div>
+
+        <div id="notice" class="notice hidden" role="status"></div>
+        <div id="content" class="content-card">
+          <div class="empty-state">
+            <h3>Connect to the private backend</h3>
+            <p>Use Authorization to sign in. Live project data is intentionally not stored in this public frontend.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="authDialog" class="modal modal-small">
+    <form method="dialog" class="modal-card" id="authForm">
+      <div class="modal-header">
+        <div><div class="eyebrow">ACCESS</div><h3>Authorization</h3></div>
+        <button class="icon-btn" type="button" data-close-dialog aria-label="Close">×</button>
+      </div>
+      <div id="authLoggedOut">
+        <label class="field"><span>PIN</span><input id="pinInput" type="password" inputmode="numeric" autocomplete="current-password" required /></label>
+        <p class="help">PIN verification happens only in the private backend. The public site contains no PIN list.</p>
+        <div class="modal-actions"><button class="btn btn-primary" id="loginBtn" type="submit">Log in</button></div>
+      </div>
+      <div id="authLoggedIn" class="hidden">
+        <div class="identity-card"><strong id="authUserName"></strong><span id="authUserRole"></span></div>
+        <div class="modal-actions"><button class="btn btn-danger" id="logoutBtn" type="button">Log out</button></div>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="settingsDialog" class="modal modal-small">
+    <form method="dialog" class="modal-card" id="settingsForm">
+      <div class="modal-header"><div><div class="eyebrow">CONNECTION</div><h3>Backend settings</h3></div><button class="icon-btn" type="button" data-close-dialog aria-label="Close">×</button></div>
+      <label class="field"><span>Private API URL</span><input id="apiUrlInput" type="url" placeholder="http://localhost:8787" required /></label>
+      <p class="help">The URL is saved only in this browser. Production should use HTTPS.</p>
+      <div class="modal-actions"><button class="btn btn-primary" type="submit">Save & check</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="projectDialog" class="modal modal-wide">
+    <form method="dialog" class="modal-card" id="projectForm">
+      <div class="modal-header">
+        <div><div class="eyebrow" id="projectModeLabel">PROJECT</div><h3 id="projectDialogTitle">Add project</h3></div>
+        <button class="icon-btn" type="button" data-close-dialog aria-label="Close">×</button>
+      </div>
+      <div class="form-grid">
+        <label class="field"><span>Order number</span><input name="orderNumber" readonly placeholder="Generated automatically" /></label>
+        <label class="field span-2"><span>Project name *</span><input name="projectName" required /></label>
+        <label class="field"><span>Status *</span><select name="status" required></select></label>
+        <label class="field"><span>Activity type</span><select name="activityType"></select></label>
+        <label class="field"><span>Customer</span><select name="customer"></select></label>
+        <label class="field"><span>Customer representative</span><select name="customerRepresentative"></select></label>
+        <label class="field"><span>Customer phone</span><input name="customerPhone" /></label>
+        <label class="field"><span>Customer email</span><input name="customerEmail" type="email" /></label>
+        <label class="field"><span>Project manager</span><select name="projectManager"></select></label>
+        <label class="field span-2"><span>Work location</span><input name="workLocation" /></label>
+
+        <div class="section-label span-3">Planned schedule</div>
+        <label class="field"><span>Start</span><input name="startPlan" type="date" /></label>
+        <label class="field"><span>End</span><input name="endPlan" type="date" /></label>
+        <label class="field"><span>Duration</span><input name="durationPlan" readonly /></label>
+
+        <div class="section-label span-3">Actual schedule</div>
+        <label class="field"><span>Start</span><input name="startFact" type="date" /></label>
+        <label class="field"><span>End</span><input name="endFact" type="date" /></label>
+        <label class="field"><span>Duration</span><input name="durationFact" readonly /></label>
+
+        <div class="section-label span-3">Commercial</div>
+        <label class="field"><span>Expected cost</span><input name="costExpected" inputmode="decimal" /></label>
+        <label class="field"><span>Actual cost</span><input name="costActual" inputmode="decimal" /></label>
+        <label class="field"><span>Currency</span><select name="currency"></select></label>
+        <label class="field span-2"><span>Contract / document</span><input name="contract" /></label>
+        <label class="field"><span>Folder link</span><input name="folderLink" /></label>
+      </div>
+      <div id="projectValidation" class="notice notice-error hidden"></div>
+      <div class="modal-actions split">
+        <div><button id="deleteProjectBtn" class="btn btn-danger hidden" type="button">Delete</button></div>
+        <div class="action-row"><button class="btn" type="button" data-close-dialog>Cancel</button><button class="btn btn-primary" id="saveProjectBtn" type="submit">Save project</button></div>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="customerDialog" class="modal modal-wide">
+    <div class="modal-card">
+      <div class="modal-header"><div><div class="eyebrow">SYSTEM LIST</div><h3>Customer management</h3></div><button class="icon-btn" id="closeCustomerDialog" aria-label="Close">×</button></div>
+      <form id="customerForm" class="customer-form">
+        <input type="hidden" name="id" />
+        <label class="field"><span>Customer *</span><input name="customer" required /></label>
+        <label class="field"><span>Representative *</span><input name="representative" required /></label>
+        <label class="field"><span>Phone</span><input name="phone" /></label>
+        <label class="field"><span>Email</span><input name="email" type="email" /></label>
+        <div class="customer-form-actions"><button class="btn btn-primary" type="submit">Save</button><button class="btn" id="resetCustomerBtn" type="button">New</button></div>
+      </form>
+      <div class="table-wrap compact"><table><thead><tr><th>Customer</th><th>Representative</th><th>Phone</th><th>Email</th><th></th></tr></thead><tbody id="customersBody"></tbody></table></div>
+    </div>
+  </dialog>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
