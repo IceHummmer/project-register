@@ -198,11 +198,18 @@ function projectGroup(project) {
 
 function filteredProjects() {
   const q = $('#searchInput').value.trim().toLowerCase();
-  return state.projects.filter(p => {
-    if (state.view !== 'all' && projectGroup(p) !== state.view) return false;
-    if (!q) return true;
-    return Object.values(p).some(v => String(v ?? '').toLowerCase().includes(q));
-  });
+  return state.projects
+    .filter(p => {
+      if (state.view !== 'all' && projectGroup(p) !== state.view) return false;
+      if (!q) return true;
+      return Object.values(p).some(v => String(v ?? '').toLowerCase().includes(q));
+    })
+    .sort((a, b) => {
+      const aNumber = Number(String(a.orderNumber || '').replace(/\D/g, '')) || 0;
+      const bNumber = Number(String(b.orderNumber || '').replace(/\D/g, '')) || 0;
+      if (aNumber !== bNumber) return bNumber - aNumber;
+      return String(b.orderNumber || '').localeCompare(String(a.orderNumber || ''), undefined, { numeric: true });
+    });
 }
 
 function renderMetrics() {
