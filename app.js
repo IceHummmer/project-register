@@ -46,6 +46,9 @@ const roleOptions = [
 
 function api(path) { return `${state.apiUrl}${path}`; }
 
+// Wake the free backend as soon as the page opens, before the user enters a PIN.
+void fetch(api('/api/health'), { cache: 'no-store' }).catch(() => {});
+
 async function request(path, options = {}) {
   const headers = { ...(options.headers || {}) };
   if (state.token) headers.Authorization = `Bearer ${state.token}`;
@@ -157,12 +160,12 @@ async function restoreSession() {
 
 async function loadCoreData() {
   if (!state.user) return;
-  const [projectResult, customerResult, lookupResult] = await Promise.all([
-    request('/api/projects'), request('/api/customers'), request('/api/lookups')
-  ]);
-  state.projects = projectResult.projects || [];
-  state.customers = customerResult.customers || [];
-  state.lookups = lookupResult.lookups || {};
+  const bootstrap = await request('/api/bootstrap');
+  state.user = bootstrap.user || state.user;
+  state.projects = bootstrap.projects || [];
+  state.customers = bootstrap.customers || [];
+  state.lookups = bootstrap.lookups || {};
+  state.oneDrive = bootstrap.oneDrive || { configured: false, connected: false };
   if (state.view === 'audit') await loadAudit();
   if (state.view === 'users' && state.user.canManageUsers) await loadUsers();
   render();
@@ -749,6 +752,8 @@ $('#authForm').addEventListener('submit', async e => {
     sessionStorage.setItem('projectRegisterToken', state.token);
     $('#pinInput').value = '';
     $('#authDialog').close();
+    setText($('#busyTitle'), 'Loading projects…');
+    setText($('#busyText'), 'Preparing the project register.');
     await loadCoreData();
     showNotice(`Signed in as ${state.user.username}.`);
   } catch (error) {
