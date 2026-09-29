@@ -144,6 +144,8 @@ async function completeMicrosoftSignIn() {
 
 function startMicrosoftSignIn() {
   if (state.operationBusy) return;
+  setLandingReady(false);
+  setLandingStatus('Opening Microsoft sign-in…');
   beginBusy('Opening Microsoft sign-in…', 'Redirecting to your company Microsoft account.');
   window.location.assign(api('/api/auth/microsoft/start'));
 }
@@ -231,8 +233,22 @@ function clearSession() {
   render();
 }
 
+function setLandingStatus(message = '', error = false) {
+  const el = $('#landingStatus');
+  if (!el) return;
+  setText(el, message);
+  el.classList.toggle('error', Boolean(error));
+}
+
+function setLandingReady(ready) {
+  $('#landingMicrosoftLoginBtn').disabled = !ready;
+  $('#landingEmergencyBtn').disabled = !ready;
+}
+
 function updateAuthUi() {
   const loggedIn = Boolean(state.user);
+  $('#loginLanding').classList.toggle('hidden', loggedIn);
+  $('#appShell').classList.toggle('hidden', !loggedIn);
   $('#authLoggedOut').classList.toggle('hidden', loggedIn);
   $('#authLoggedIn').classList.toggle('hidden', !loggedIn);
   setText($('#authUserName'), state.user?.username || '');
@@ -241,12 +257,40 @@ function updateAuthUi() {
   $('#usersTab').classList.toggle('hidden', !state.user?.canManageUsers);
 }
 
+function isWakeError(error) {
+  return /Connection unavailable|Request failed \((502|503|504)\)/i.test(String(error?.message || ''));
+}
+
 async function restoreSession() {
-  try {
-    const { user } = await request('/api/auth/me');
-    state.user = user;
-    await loadCoreData();
-  } catch { clearSession(); }
+  setLandingReady(false);
+  setLandingStatus('Connecting securely…');
+
+  let lastError = null;
+  for (let attempt = 1; attempt <= 12; attempt++) {
+    try {
+      const { user } = await request('/api/auth/me');
+      state.user = user;
+      await loadCoreData();
+      setLandingStatus('');
+      return;
+    } catch (error) {
+      lastError = error;
+
+      if (!isWakeError(error)) {
+        clearSession();
+        setLandingReady(true);
+        setLandingStatus('');
+        return;
+      }
+
+      setLandingStatus(attempt < 3 ? 'Starting secure server…' : 'Still starting secure server…');
+      await wait(3000);
+    }
+  }
+
+  clearSession();
+  setLandingReady(true);
+  setLandingStatus(lastError?.message || 'Server is temporarily unavailable.', true);
 }
 
 async function loadCoreData() {
@@ -1201,6 +1245,31 @@ $('#mailStubBtn').addEventListener('click',requestUpdateStub);
 $('#manageCustomersBtn').addEventListener('click',()=>openCustomers());
 $('#authBtn').addEventListener('click',()=>$('#authDialog').showModal());
 $('#microsoftLoginBtn').addEventListener('click', startMicrosoftSignIn);
+$('#landingMicrosoftLoginBtn').addEventListener('click', startMicrosoftSignIn);
+$('#landingEmergencyForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (state.user || state.operationBusy) return;
+
+  const password = $('#landingPinInput').value;
+  if (!password) return;
+
+  setLandingReady(false);
+  setLandingStatus('Signing in…');
+
+  try {
+    const r = await loginRequest(password);
+    state.user = r.user;
+    $('#landingPinInput').value = '';
+    setText($('#busyTitle'), 'Loading projects…');
+    setText($('#busyText'), 'Preparing the project register.');
+    await loadCoreData();
+    setLandingStatus('');
+  } catch (error) {
+    setLandingStatus(error.message, true);
+  } finally {
+    setLandingReady(true);
+  }
+});
 $$('[data-close-dialog]').forEach(btn => btn.addEventListener('click', () => btn.closest('dialog')?.close()));
 
 $('#authForm').addEventListener('submit', async e => {
@@ -1251,6 +1320,10 @@ $('#customerForm').addEventListener('submit',e=>{e.preventDefault();saveCustomer
 $('#resetCustomerBtn').addEventListener('click',()=>{$('#customerForm').reset();$('#customerForm').elements.id.value='';});
 $('#closeCustomerDialog').addEventListener('click',()=>$('#customerDialog').close());
 
+updateAuthUi();
+render();
+
 const microsoftRedirectHandled = await completeMicrosoftSignIn();
 if (!microsoftRedirectHandled) await restoreSession();
+updateAuthUi();
 render();
