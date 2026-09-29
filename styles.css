@@ -274,3 +274,37 @@ tbody tr:hover {
   font-weight: 800;
   vertical-align: middle;
 }
+
+
+/* Multi-role access controls */
+.role-checklist {
+  display: grid;
+  gap: 6px;
+  min-width: 220px;
+}
+.role-check-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.role-check-item input {
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+.role-check-item input:disabled + span {
+  font-weight: 800;
+  color: var(--accent);
+}
+.users-table td:nth-child(3) {
+  white-space: normal;
+  min-width: 260px;
+}
+.user-add-card .role-checklist {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fffdfa;
+}
