@@ -68,6 +68,29 @@ async function request(path, options = {}) {
   return data;
 }
 
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function loginRequest(password) {
+  let lastError;
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    try {
+      return await request('/api/auth/login', {
+        method: 'POST',
+        body: { password }
+      });
+    } catch (error) {
+      lastError = error;
+      if (error.message !== 'Connection unavailable. Please try again.' || attempt === 4) throw error;
+      setText($('#busyTitle'), attempt === 1 ? 'Connecting…' : 'Still connecting…');
+      setText($('#busyText'), 'The server is starting. You do not need to press Log in again.');
+      await wait(attempt * 1500);
+    }
+  }
+  throw lastError;
+}
+
 function escapeText(value) { return value == null ? '' : String(value); }
 function setText(el, value) { if (el) el.textContent = escapeText(value); }
 
@@ -750,10 +773,7 @@ $('#authForm').addEventListener('submit', async e => {
   $('#loginBtn').disabled = true;
 
   try {
-    const r = await request('/api/auth/login', {
-      method: 'POST',
-      body: { password }
-    });
+    const r = await loginRequest(password);
     state.token = r.token;
     state.user = r.user;
     sessionStorage.setItem('projectRegisterToken', state.token);
