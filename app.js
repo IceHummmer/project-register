@@ -39,10 +39,17 @@ const projectColumns = [
 ];
 
 const roleOptions = [
-  ['viewer', 'View only'],
-  ['pm', 'Edit own projects'],
-  ['localAdmin', 'Edit all projects']
+  ['viewer', 'View all projects — read only'],
+  ['pm', 'Project manager — edit own projects'],
+  ['localAdmin', 'Local administrator — edit all projects']
 ];
+
+const roleNames = {
+  admin: 'Main administrator',
+  localAdmin: 'Local administrator',
+  pm: 'Project manager',
+  viewer: 'View only'
+};
 
 function api(path) { return `${state.apiUrl}${path}`; }
 
@@ -177,12 +184,22 @@ function endBusy() {
   $('#deleteProjectBtn').disabled = false;
 }
 
+function normalizeRoles(value) {
+  if (Array.isArray(value)) return [...new Set(value.filter(Boolean))];
+  if (value && Array.isArray(value.roles) && value.roles.length) return [...new Set(value.roles.filter(Boolean))];
+  if (value?.role) return [value.role];
+  if (typeof value === 'string' && value) return [value];
+  return [];
+}
+
 function roleLabel(role) {
-  if (role === 'admin') return 'Main administrator';
-  if (role === 'localAdmin') return 'Edit all projects';
-  if (role === 'pm') return 'Edit own projects';
-  if (role === 'viewer') return 'View only';
-  return role || '';
+  return roleNames[role] || role || '';
+}
+
+function rolesLabel(value) {
+  const roles = normalizeRoles(value);
+  const order = ['admin', 'localAdmin', 'pm', 'viewer'];
+  return order.filter(role => roles.includes(role)).map(roleLabel).join(' · ');
 }
 
 function canEditProjects() {
@@ -216,7 +233,7 @@ function updateAuthUi() {
   $('#authLoggedOut').classList.toggle('hidden', loggedIn);
   $('#authLoggedIn').classList.toggle('hidden', !loggedIn);
   setText($('#authUserName'), state.user?.username || '');
-  setText($('#authUserRole'), roleLabel(state.user?.role));
+  setText($('#authUserRole'), rolesLabel(state.user));
   setText($('#authBtn'), loggedIn ? state.user.username : 'Sign in');
   $('#usersTab').classList.toggle('hidden', !state.user?.canManageUsers);
 }
@@ -415,16 +432,41 @@ function renderAudit() {
   table.append(body); wrap.append(table); content.replaceChildren(wrap);
 }
 
-function makeRoleSelect(value, disabled = false) {
-  const select = document.createElement('select');
-  select.className = 'inline-select';
-  for (const [role, label] of roleOptions) {
-    const opt = document.createElement('option'); opt.value = role; opt.textContent = label;
-    if (role === value) opt.selected = true;
-    select.append(opt);
+function makeRoleChecklist(values = [], { includeAdmin = false, lockAdmin = false } = {}) {
+  const selected = new Set(normalizeRoles(values));
+  const wrap = document.createElement('div');
+  wrap.className = 'role-checklist';
+
+  const options = includeAdmin
+    ? [['admin', 'Main administrator'], ...roleOptions]
+    : roleOptions;
+
+  for (const [role, label] of options) {
+    const item = document.createElement('label');
+    item.className = 'role-check-item';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = role;
+    checkbox.checked = selected.has(role);
+    if (role === 'admin' && lockAdmin) {
+      checkbox.checked = true;
+      checkbox.disabled = true;
+    }
+    const text = document.createElement('span');
+    text.textContent = label;
+    item.append(checkbox, text);
+    wrap.append(item);
   }
-  select.disabled = disabled;
-  return select;
+
+  wrap.getRoles = () => {
+    const roles = [...wrap.querySelectorAll('input[type="checkbox"]')]
+      .filter(input => input.checked)
+      .map(input => input.value);
+    if (lockAdmin && !roles.includes('admin')) roles.unshift('admin');
+    return roles;
+  };
+
+  return wrap;
 }
 
 function renderUsers() {
@@ -439,28 +481,36 @@ function renderUsers() {
 
   const addCard = document.createElement('form');
   addCard.className = 'user-add-card';
+
   const nameInput = document.createElement('input');
   nameInput.placeholder = 'User name';
   nameInput.required = true;
+
   const microsoftInput = document.createElement('input');
   microsoftInput.type = 'email';
   microsoftInput.placeholder = 'Microsoft account';
   microsoftInput.required = true;
-  const roleSelect = makeRoleSelect('pm');
+
+  const roleControl = makeRoleChecklist(['pm']);
+
   const addBtn = document.createElement('button');
   addBtn.className = 'btn btn-primary';
   addBtn.type = 'submit';
   addBtn.textContent = 'Add user';
-  addCard.append(nameInput, microsoftInput, roleSelect, addBtn);
+
+  addCard.append(nameInput, microsoftInput, roleControl, addBtn);
   addCard.addEventListener('submit', async e => {
     e.preventDefault();
+    const roles = roleControl.getRoles();
+    if (!roles.length) return showNotice('Select at least one role.', 'error');
+
     try {
       await request('/api/users', {
         method: 'POST',
         body: {
           username: nameInput.value,
           microsoftAccount: microsoftInput.value,
-          role: roleSelect.value
+          roles
         }
       });
       await Promise.all([loadUsers(), refreshLookups()]);
@@ -477,17 +527,21 @@ function renderUsers() {
     !q ||
     u.username.toLowerCase().includes(q) ||
     String(u.microsoftAccount || '').toLowerCase().includes(q) ||
-    roleLabel(u.role).toLowerCase().includes(q)
+    rolesLabel(u).toLowerCase().includes(q)
   );
 
   const wrap = document.createElement('div');
   wrap.className = 'table-wrap users-table-wrap';
+
   const table = document.createElement('table');
   table.className = 'users-table';
-  table.innerHTML = '<thead><tr><th>User</th><th>Microsoft account</th><th>Access</th><th>Emergency PIN</th><th>Actions</th></tr></thead>';
+  table.innerHTML = '<thead><tr><th>User</th><th>Microsoft account</th><th>Roles</th><th>Emergency PIN</th><th>Actions</th></tr></thead>';
+
   const body = document.createElement('tbody');
 
   for (const u of users) {
+    const userRoles = normalizeRoles(u);
+    const isMainAdmin = userRoles.includes('admin');
     const tr = document.createElement('tr');
 
     const userTd = document.createElement('td');
@@ -502,6 +556,7 @@ function renderUsers() {
     account.placeholder = 'name@helsinginhitsaus.fi';
     account.value = u.microsoftAccount || '';
     accountTd.append(account);
+
     if (u.microsoftLinked) {
       const linked = document.createElement('span');
       linked.className = 'account-linked';
@@ -510,19 +565,15 @@ function renderUsers() {
     }
 
     const accessTd = document.createElement('td');
-    let accessControl;
-    if (u.role === 'admin') {
-      accessControl = document.createElement('span');
-      accessControl.className = 'access-label';
-      accessControl.textContent = 'Main administrator';
-    } else {
-      accessControl = makeRoleSelect(u.role);
-    }
+    const accessControl = makeRoleChecklist(userRoles, {
+      includeAdmin: isMainAdmin,
+      lockAdmin: isMainAdmin
+    });
     accessTd.append(accessControl);
 
     const passwordTd = document.createElement('td');
     let pass = null;
-    if (u.role === 'admin') {
+    if (isMainAdmin) {
       pass = document.createElement('input');
       pass.type = 'password';
       pass.className = 'password-reset';
@@ -535,20 +586,33 @@ function renderUsers() {
 
     const actionsTd = document.createElement('td');
     actionsTd.className = 'user-actions';
+
     const save = document.createElement('button');
     save.className = 'btn';
     save.type = 'button';
     save.textContent = 'Save';
     save.addEventListener('click', async () => {
-      const payload = { microsoftAccount: account.value };
-      if (u.role !== 'admin') payload.role = accessControl.value;
+      const roles = accessControl.getRoles();
+      if (!roles.length) return showNotice('Select at least one role.', 'error');
+
+      const payload = {
+        microsoftAccount: account.value,
+        roles
+      };
       if (pass?.value) payload.password = pass.value;
+
       try {
-        await request(`/api/users/${encodeURIComponent(u.username)}`, {
+        const result = await request(`/api/users/${encodeURIComponent(u.username)}`, {
           method: 'PUT',
           body: payload
         });
+
         if (pass) pass.value = '';
+        if (u.username === state.user?.username && result.user) {
+          state.user = { ...state.user, ...result.user };
+          updateAuthUi();
+        }
+
         await Promise.all([loadUsers(), refreshLookups()]);
         renderUsers();
         showNotice('User updated.');
@@ -558,13 +622,14 @@ function renderUsers() {
     });
     actionsTd.append(save);
 
-    if (u.role !== 'admin') {
+    if (!isMainAdmin) {
       const del = document.createElement('button');
       del.className = 'btn btn-danger';
       del.type = 'button';
       del.textContent = 'Delete';
       del.addEventListener('click', async () => {
         if (!confirm(`Delete user ${u.username}?`)) return;
+
         try {
           await request(`/api/users/${encodeURIComponent(u.username)}`, { method: 'DELETE' });
           await Promise.all([loadUsers(), refreshLookups()]);
