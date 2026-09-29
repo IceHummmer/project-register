@@ -2,7 +2,7 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 const state = {
-  apiUrl: 'https://project-register-api.onrender.com',
+  apiUrl: 'https://api.project-register.helsinginhitsaus.fi',
   user: null,
   projects: [],
   customers: [],
