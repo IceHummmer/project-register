@@ -14,7 +14,8 @@ const state = {
   view: 'all',
   selectedNumber: null,
   editingNumber: null,
-  operationBusy: false
+  operationBusy: false,
+  editableOnly: false
 };
 
 const viewInfo = {
@@ -222,6 +223,7 @@ function clearSession() {
   state.audit = [];
   state.users = [];
   state.selectedNumber = null;
+  state.editableOnly = false;
   sessionStorage.removeItem('projectRegisterToken');
   if (state.view === 'users') state.view = 'all';
   updateAuthUi();
@@ -290,6 +292,7 @@ function filteredProjects() {
   return state.projects
     .filter(p => {
       if (state.view !== 'all' && projectGroup(p) !== state.view) return false;
+      if (state.editableOnly && !p.canEdit) return false;
       if (!q) return true;
       return Object.values(p).some(v => String(v ?? '').toLowerCase().includes(q));
     })
@@ -333,7 +336,7 @@ function renderProjectTable() {
     tr.dataset.number = p.orderNumber;
     if (p.orderNumber === state.selectedNumber) tr.classList.add('selected');
     tr.addEventListener('click', () => selectProject(p.orderNumber));
-    if (p.canEdit) tr.addEventListener('dblclick', () => openProjectEditor(p));
+    tr.addEventListener('dblclick', () => openProjectEditor(p));
     for (const [key] of projectColumns) {
       const td = document.createElement('td');
       if (key === 'status') {
@@ -349,7 +352,12 @@ function renderProjectTable() {
     tbody.append(tr);
   }
   table.append(tbody); wrap.append(table); content.replaceChildren(wrap);
-  if (!projects.length) content.innerHTML = '<div class="empty-state"><div><h3>No matching projects</h3><p>Change the view or search term.</p></div></div>';
+  if (!projects.length) {
+    const message = state.editableOnly
+      ? '<div class="empty-state"><div><h3>No editable projects</h3><p>Turn off Editable only or change the current view.</p></div></div>'
+      : '<div class="empty-state"><div><h3>No matching projects</h3><p>Change the view or search term.</p></div></div>';
+    content.innerHTML = message;
+  }
 }
 
 function renderCustomers() {
@@ -660,6 +668,8 @@ function renderToolbar() {
   $('#openFolderBtn').classList.toggle('hidden', !projectView);
   $('#syncFolderBtn').classList.toggle('hidden', !projectView || !canEdit);
   $('#mailStubBtn').classList.toggle('hidden', !projectView);
+  $('#editableOnlyControl').classList.toggle('hidden', !projectView || !canEdit);
+  $('#editableOnlyToggle').checked = Boolean(state.editableOnly);
   $('#manageCustomersBtn').classList.toggle('hidden', state.view !== 'customers' || !canEditCustomers());
   const p = selectedProject();
   $('#editProjectBtn').disabled = !p || !p.canEdit;
@@ -758,16 +768,52 @@ function setFormProject(project = {}) {
   updateDurations();
 }
 
+function setProjectDialogMode({ project = null, readOnly = false } = {}) {
+  const form = $('#projectForm');
+  form.dataset.readOnly = readOnly ? 'true' : 'false';
+
+  for (const el of form.querySelectorAll('input, select')) {
+    el.disabled = readOnly;
+  }
+
+  if (!readOnly && state.user?.access === 'edit_own') {
+    form.elements.projectManager.disabled = true;
+  }
+
+  $('#saveProjectBtn').classList.toggle('hidden', readOnly);
+  $('#deleteProjectBtn').classList.toggle('hidden', readOnly || !project);
+
+  const closeBtn = $('#projectDialog .modal-actions .action-row [data-close-dialog]');
+  if (closeBtn) closeBtn.textContent = readOnly ? 'Close' : 'Cancel';
+}
+
 function openProjectEditor(project = null) {
   if (!state.user) return $('#authDialog').showModal();
-  if (!canEditProjects()) return showNotice('Your access level is read-only.', 'error');
-  if (project && !project.canEdit) return showNotice('You do not have permission to edit this project.', 'error');
+
+  if (!project && !canEditProjects()) {
+    return showNotice('Your access level is read-only.', 'error');
+  }
+
+  const readOnly = Boolean(project && !project.canEdit);
   state.editingNumber = project?.orderNumber || null;
-  setText($('#projectModeLabel'), project ? `PROJECT ${project.orderNumber}` : 'NEW PROJECT');
-  setText($('#projectDialogTitle'), project ? 'Edit project' : 'Add project');
-  $('#deleteProjectBtn').classList.toggle('hidden', !project);
+
+  setText(
+    $('#projectModeLabel'),
+    project
+      ? `PROJECT ${project.orderNumber}${readOnly ? ' · READ ONLY' : ''}`
+      : 'NEW PROJECT'
+  );
+  setText(
+    $('#projectDialogTitle'),
+    project ? (readOnly ? 'Project details' : 'Edit project') : 'Add project'
+  );
+
   $('#projectValidation').classList.add('hidden');
-  setFormProject(project || { status: 'In plan', projectManager: state.user?.access === 'edit_own' ? state.user.username : '' });
+  setFormProject(project || {
+    status: 'In plan',
+    projectManager: state.user?.access === 'edit_own' ? state.user.username : ''
+  });
+  setProjectDialogMode({ project, readOnly });
   $('#projectDialog').showModal();
 }
 
@@ -779,6 +825,7 @@ function formPayload(form) {
 }
 
 async function saveProject() {
+  if ($('#projectForm').dataset.readOnly === 'true') return;
   if (state.operationBusy) return;
   const validation = $('#projectValidation');
   validation.classList.add('hidden');
@@ -932,6 +979,11 @@ async function activateView(view) {
 
 $$('.tab').forEach(btn=>btn.addEventListener('click',()=>activateView(btn.dataset.view)));
 $('#searchInput').addEventListener('input',render);
+$('#editableOnlyToggle').addEventListener('change', e => {
+  state.editableOnly = Boolean(e.target.checked);
+  state.selectedNumber = null;
+  render();
+});
 $('#addProjectBtn').addEventListener('click',()=>openProjectEditor());
 $('#editProjectBtn').addEventListener('click',()=>{const p=selectedProject();if(p)openProjectEditor(p);});
 $('#openFolderBtn').addEventListener('click',openFolder);
