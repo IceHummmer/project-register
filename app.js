@@ -17,6 +17,11 @@ const state = {
   editableOnly: false
 };
 
+let pendingDeleteChallenge = null;
+let openerFallbackProject = null;
+let openerAttemptSequence = 0;
+let openerLaunchBusy = false;
+
 const viewInfo = {
   all: ['All Projects', ''],
   plan: ['Projects in Plan', 'Projects currently in planning.'],
@@ -668,7 +673,7 @@ function renderToolbar() {
   $('#manageCustomersBtn').classList.toggle('hidden', state.view !== 'customers' || !canEditCustomers());
   const p = selectedProject();
   $('#editProjectBtn').disabled = !p || !p.canEdit;
-  $('#openFolderBtn').disabled = !p || !/^https?:\/\//i.test(String(p.folderLink || ''));
+  $('#openFolderBtn').disabled = !p || !localProjectFolderPath(p);
   $('#syncFolderBtn').disabled = !p || !p.canEdit;
   $('#mailStubBtn').disabled = !p || !state.user;
 }
@@ -760,6 +765,12 @@ function setFormProject(project = {}) {
     form.elements.projectManager.value = project.projectManager || state.user.username;
     form.elements.projectManager.disabled = true;
   } else form.elements.projectManager.disabled = false;
+
+  const hasLocalFolder = Boolean(localProjectFolderPath(project));
+  const hasWebFolder = Boolean(projectWebFolderUrl(project));
+  $('#openProjectFolderBtn').disabled = !hasLocalFolder;
+  $('#openProjectFolderWebBtn').disabled = !hasWebFolder;
+
   updateDurations();
 }
 
@@ -865,26 +876,86 @@ async function saveProject() {
 async function deleteProject() {
   if (state.operationBusy) return;
   const p = selectedProject() || state.projects.find(x => x.orderNumber === state.editingNumber);
-  if (!p || !confirm(`Delete project ${p.orderNumber} — ${p.projectName}?\n\nThe project folder will also be deleted from OneDrive.`)) return;
+  if (!p) return;
 
-  const idempotencyKey = operationKey();
+  try {
+    const r = await request('/api/projects/delete-challenge', {
+      method: 'POST',
+      body: { orderNumber: p.orderNumber }
+    });
+
+    pendingDeleteChallenge = {
+      orderNumber: p.orderNumber,
+      projectName: p.projectName,
+      challengeId: r.challenge.id,
+      idempotencyKey: operationKey()
+    };
+
+    setText($('#deleteProjectName'), `${p.orderNumber} — ${p.projectName}`);
+    setText($('#deleteProjectCode'), r.challenge.code);
+
+    const input = $('#deleteCodeInput');
+    input.value = '';
+    const validation = $('#deleteValidation');
+    validation.textContent = '';
+    validation.classList.add('hidden');
+
+    $('#deleteConfirmDialog').showModal();
+    setTimeout(() => input.focus(), 0);
+  } catch (error) {
+    showNotice(error.message, 'error');
+  }
+}
+
+async function confirmDeleteProject(event) {
+  event.preventDefault();
+  if (state.operationBusy || !pendingDeleteChallenge) return;
+
+  const input = $('#deleteCodeInput');
+  const confirmationCode = String(input.value || '').trim().toUpperCase();
+  const validation = $('#deleteValidation');
+
+  if (!/^[A-Z0-9]{5}$/.test(confirmationCode)) {
+    validation.textContent = 'Enter the 5-character code shown above.';
+    validation.classList.remove('hidden');
+    input.focus();
+    return;
+  }
+
+  validation.textContent = '';
+  validation.classList.add('hidden');
+  $('#confirmDeleteBtn').disabled = true;
+
   if (!beginBusy(
     'Deleting project…',
     'Removing the project folder from OneDrive and then deleting the project from the register.'
-  )) return;
+  )) {
+    $('#confirmDeleteBtn').disabled = false;
+    return;
+  }
 
   try {
-    await request(`/api/projects/${encodeURIComponent(p.orderNumber)}`, {
+    await request(`/api/projects/${encodeURIComponent(pendingDeleteChallenge.orderNumber)}`, {
       method: 'DELETE',
-      headers: { 'X-Idempotency-Key': idempotencyKey }
+      headers: { 'X-Idempotency-Key': pendingDeleteChallenge.idempotencyKey },
+      body: {
+        challengeId: pendingDeleteChallenge.challengeId,
+        confirmationCode
+      }
     });
+
+    $('#deleteConfirmDialog').close();
     $('#projectDialog').close();
+    pendingDeleteChallenge = null;
     state.selectedNumber = null;
     await loadCoreData();
     showNotice('Project and its OneDrive folder were deleted.');
   } catch (error) {
-    showNotice(error.message, 'error');
+    validation.textContent = error.message;
+    validation.classList.remove('hidden');
+    input.select();
   } finally {
+    $('#confirmDeleteBtn').disabled = false;
     endBusy();
   }
 }
@@ -954,10 +1025,143 @@ async function syncFolder() {
   }
 }
 
-function openFolder() {
-  const p=selectedProject(); if(!p?.folderLink)return;
-  if (/^https?:\/\//i.test(p.folderLink)) window.open(p.folderLink,'_blank','noopener');
-  else showNotice('Synchronize the project folder first.', 'error');
+function base64UrlUtf8(value) {
+  const bytes = new TextEncoder().encode(String(value || ''));
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function projectForOpenFolder() {
+  return selectedProject() || state.projects.find(x => x.orderNumber === state.editingNumber) || null;
+}
+
+function localProjectFolderPath(project) {
+  const direct = String(project?.folderPath || '').trim().replace(/\\/g, '/');
+  if (direct) return direct;
+
+  const legacy = String(project?.folderLink || '').trim();
+  if (!/^file:/i.test(legacy)) return '';
+
+  let decoded = legacy;
+  try { decoded = decodeURIComponent(legacy); } catch {}
+  decoded = decoded.replace(/^file:\/+/i, '').replace(/\\/g, '/');
+
+  const marker = 'Helsingin Hitsaus/7. Projects';
+  const index = decoded.lastIndexOf(marker);
+  return index >= 0 ? decoded.slice(index) : '';
+}
+
+const ONEDRIVE_WEB_HOME = 'https://helsinginhitsaus-my.sharepoint.com/my';
+const ONEDRIVE_PERSONAL_DOCUMENTS = '/personal/andrey_helsinginhitsaus_fi/Documents';
+const ONEDRIVE_VIEW_ID = 'af5a1adf-7528-4d65-88d6-5fac1ea8ba82';
+
+function projectWebFolderUrl(project) {
+  const stored = String(project?.folderLink || '').trim();
+  if (/^https?:\/\//i.test(stored)) return stored;
+
+  const relative = localProjectFolderPath(project);
+  if (!relative || !relative.startsWith('Helsingin Hitsaus/7. Projects')) return '';
+
+  const url = new URL(ONEDRIVE_WEB_HOME);
+  url.searchParams.set('id', `${ONEDRIVE_PERSONAL_DOCUMENTS}/${relative}`);
+  url.searchParams.set('viewid', ONEDRIVE_VIEW_ID);
+  return url.toString();
+}
+
+function showOpenerHelp(project) {
+  openerFallbackProject = project || null;
+  const fallback = $('#openerWebFallbackBtn');
+  fallback.classList.toggle('hidden', !projectWebFolderUrl(project));
+  $('#openerHelpDialog').showModal();
+}
+
+function setOpenerLaunchBusy(busy) {
+  openerLaunchBusy = busy;
+
+  const toolbarButton = $('#openFolderBtn');
+  const cardButton = $('#openProjectFolderBtn');
+
+  if (busy) {
+    if (toolbarButton) toolbarButton.disabled = true;
+    if (cardButton) cardButton.disabled = true;
+    return;
+  }
+
+  const toolbarProject = selectedProject();
+  if (toolbarButton) {
+    toolbarButton.disabled = !toolbarProject || !localProjectFolderPath(toolbarProject);
+  }
+
+  const cardProject = projectForOpenFolder();
+  if (cardButton) {
+    cardButton.disabled = !cardProject || !localProjectFolderPath(cardProject);
+  }
+}
+
+function openFolder(project = projectForOpenFolder()) {
+  if (openerLaunchBusy) return;
+
+  const folderPath = localProjectFolderPath(project);
+  if (!folderPath) {
+    return showNotice('Synchronize the project folder first.', 'error');
+  }
+
+  setOpenerLaunchBusy(true);
+
+  const attempt = ++openerAttemptSequence;
+  let externalLaunchDetected = false;
+
+  const cleanupDetection = () => {
+    window.removeEventListener('blur', onBlur);
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+  };
+  const markExternalLaunch = () => {
+    externalLaunchDetected = true;
+    cleanupDetection();
+    if (attempt === openerAttemptSequence) setOpenerLaunchBusy(false);
+  };
+  const onBlur = () => markExternalLaunch();
+  const onVisibilityChange = () => {
+    if (document.hidden) markExternalLaunch();
+  };
+
+  window.addEventListener('blur', onBlur, { once: true });
+  document.addEventListener('visibilitychange', onVisibilityChange);
+
+  const openerUrl = `projectregister://open/${base64UrlUtf8(folderPath)}`;
+  const link = document.createElement('a');
+  link.href = openerUrl;
+  link.style.display = 'none';
+  document.body.append(link);
+  link.click();
+  setTimeout(() => link.remove(), 1000);
+
+  setTimeout(() => {
+    cleanupDetection();
+    if (attempt !== openerAttemptSequence) return;
+
+    setOpenerLaunchBusy(false);
+
+    if (
+      !externalLaunchDetected &&
+      document.visibilityState === 'visible' &&
+      document.hasFocus()
+    ) {
+      showOpenerHelp(project);
+    }
+  }, 3000);
+
+  showNotice('Opening the local OneDrive folder…');
+}
+
+function openFolderWeb(project = projectForOpenFolder()) {
+  const link = projectWebFolderUrl(project);
+  if (link) {
+    window.open(link, '_blank', 'noopener');
+  } else {
+    showNotice('The OneDrive web path is not available for this project.', 'error');
+  }
 }
 
 async function activateView(view) {
@@ -981,7 +1185,17 @@ $('#editableOnlyToggle').addEventListener('change', e => {
 });
 $('#addProjectBtn').addEventListener('click',()=>openProjectEditor());
 $('#editProjectBtn').addEventListener('click',()=>{const p=selectedProject();if(p)openProjectEditor(p);});
-$('#openFolderBtn').addEventListener('click',openFolder);
+$('#openFolderBtn').addEventListener('click', () => openFolder(selectedProject()));
+$('#openProjectFolderBtn').addEventListener('click', () => openFolder(projectForOpenFolder()));
+$('#openProjectFolderWebBtn').addEventListener('click', () => openFolderWeb(projectForOpenFolder()));
+$('#openerWebFallbackBtn').addEventListener('click', () => {
+  const project = openerFallbackProject;
+  $('#openerHelpDialog').close();
+  openFolderWeb(project);
+});
+$('#openerHelpDialog').addEventListener('close', () => {
+  openerFallbackProject = null;
+});
 $('#syncFolderBtn').addEventListener('click',syncFolder);
 $('#mailStubBtn').addEventListener('click',requestUpdateStub);
 $('#manageCustomersBtn').addEventListener('click',()=>openCustomers());
@@ -1021,6 +1235,15 @@ $('#logoutBtn').addEventListener('click',async()=>{
 });
 $('#projectForm').addEventListener('submit',e=>{e.preventDefault();saveProject();});
 $('#deleteProjectBtn').addEventListener('click',deleteProject);
+$('#deleteConfirmForm').addEventListener('submit', confirmDeleteProject);
+$('#deleteCodeInput').addEventListener('input', e => {
+  e.target.value = String(e.target.value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
+});
+$('#deleteConfirmDialog').addEventListener('close', () => {
+  pendingDeleteChallenge = null;
+  $('#deleteCodeInput').value = '';
+  $('#deleteValidation').classList.add('hidden');
+});
 $('#projectForm').elements.customer.addEventListener('change',()=>refreshRepresentativeOptions());
 $('#projectForm').elements.customerRepresentative.addEventListener('change',applyRepresentativeContact);
 ['startPlan','endPlan','startFact','endFact'].forEach(n=>$('#projectForm').elements[n].addEventListener('change',updateDurations));
