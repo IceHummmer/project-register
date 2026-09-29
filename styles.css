@@ -255,3 +255,22 @@ th {
 tbody tr:hover {
   background: #fbf8f4;
 }
+
+
+/* Microsoft sign-in */
+.auth-ms-btn { width: 100%; min-height: 46px; font-size: 14px; }
+.auth-help { margin: 10px 0 16px; text-align: center; }
+.emergency-access { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 8px; }
+.emergency-access summary { cursor: pointer; color: var(--muted); font-size: 12px; font-weight: 700; }
+.emergency-access[open] summary { margin-bottom: 12px; }
+.account-linked {
+  display: inline-flex;
+  margin-left: 8px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #efe5d9;
+  color: #6b4b31;
+  font-size: 10px;
+  font-weight: 800;
+  vertical-align: middle;
+}
