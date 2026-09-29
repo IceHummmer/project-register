@@ -6,10 +6,7 @@
   <title>Project Register</title>
   <meta name="theme-color" content="#7a5a3a" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <link rel="alternate icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-  <link rel="manifest" href="/site.webmanifest" />
-  <link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="app-shell">
@@ -131,12 +128,63 @@
         <label class="field"><span>Actual cost</span><input name="costActual" inputmode="decimal" /></label>
         <label class="field"><span>Currency</span><select name="currency"></select></label>
         <label class="field span-2"><span>Contract / document</span><input name="contract" /></label>
-        <label class="field"><span>Project folder</span><input name="folderLink" readonly placeholder="Managed automatically" /></label>
+        <div class="field span-3 project-folder-field">
+          <span>Project folder</span>
+          <div class="project-folder-row project-folder-buttons">
+            <button id="openProjectFolderBtn" class="btn btn-primary" type="button">Open folder</button>
+            <button id="openProjectFolderWebBtn" class="btn" type="button">OneDrive web</button>
+          </div>
+          <div class="project-folder-help">
+            <span>First time on this computer?</span>
+            <a href="https://api.project-register.helsinginhitsaus.fi/opener/windows" download>Install Windows opener</a>
+            <span>·</span>
+            <a href="https://api.project-register.helsinginhitsaus.fi/opener/macos" download>Install Mac opener</a>
+          </div>
+        </div>
       </div>
       <div id="projectValidation" class="notice notice-error hidden"></div>
       <div class="modal-actions split">
         <div><button id="deleteProjectBtn" class="btn btn-danger hidden" type="button">Delete</button></div>
         <div class="action-row"><button class="btn" type="button" data-close-dialog>Cancel</button><button class="btn btn-primary" id="saveProjectBtn" type="submit">Save project</button></div>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="openerHelpDialog" class="modal modal-small">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div><div class="eyebrow">OPEN PROJECT FOLDER</div><h3>Folder opener is required</h3></div>
+        <button class="icon-btn" type="button" data-close-dialog aria-label="Close">×</button>
+      </div>
+      <p class="help">The local project folder could not be opened. Install Project Register Folder Opener once on this computer, then try again.</p>
+      <div class="opener-install-actions">
+        <a class="btn btn-primary" href="https://api.project-register.helsinginhitsaus.fi/opener/windows" download>Install Windows opener</a>
+        <a class="btn" href="https://api.project-register.helsinginhitsaus.fi/opener/macos" download>Install Mac opener</a>
+      </div>
+      <div class="modal-actions">
+        <button id="openerWebFallbackBtn" class="btn hidden" type="button">Open in OneDrive web</button>
+        <button class="btn" type="button" data-close-dialog>Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="deleteConfirmDialog" class="modal modal-small">
+    <form class="modal-card" id="deleteConfirmForm">
+      <div class="modal-header">
+        <div><div class="eyebrow">DELETE PROJECT</div><h3>Confirm project deletion</h3></div>
+        <button class="icon-btn" type="button" data-close-dialog aria-label="Close">×</button>
+      </div>
+      <p class="help">You are about to permanently delete <strong id="deleteProjectName"></strong> and its OneDrive folder.</p>
+      <p class="help">Enter the 5-character code shown below to continue. The code expires in 5 minutes.</p>
+      <div id="deleteProjectCode" class="delete-code" aria-label="Deletion confirmation code"></div>
+      <label class="field">
+        <span>Confirmation code</span>
+        <input id="deleteCodeInput" type="text" maxlength="5" autocomplete="off" autocapitalize="characters" spellcheck="false" required />
+      </label>
+      <div id="deleteValidation" class="notice notice-error hidden"></div>
+      <div class="modal-actions">
+        <button class="btn" type="button" data-close-dialog>Cancel</button>
+        <button id="confirmDeleteBtn" class="btn btn-danger" type="submit">Delete project</button>
       </div>
     </form>
   </dialog>
