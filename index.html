@@ -9,7 +9,34 @@
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="app-shell">
+  <section id="loginLanding" class="login-landing">
+    <div class="login-landing-card">
+      <div class="eyebrow">PROJECT CONTROL</div>
+      <h1>Project Register</h1>
+      <p>Sign in with your Helsingin Hitsaus Microsoft account to continue.</p>
+
+      <div id="landingStatus" class="login-landing-status">Connecting securely…</div>
+
+      <button id="landingMicrosoftLoginBtn" class="btn btn-primary login-ms-btn" type="button" disabled>
+        Sign in with Microsoft
+      </button>
+
+      <details class="login-emergency">
+        <summary>Emergency administrator access</summary>
+        <form id="landingEmergencyForm">
+          <label class="field">
+            <span>Administrator password</span>
+            <input id="landingPinInput" type="password" autocomplete="current-password" />
+          </label>
+          <button id="landingEmergencyBtn" class="btn" type="submit" disabled>Emergency log in</button>
+        </form>
+      </details>
+
+      <div class="login-brand">Helsingin Hitsaus</div>
+    </div>
+  </section>
+
+  <div id="appShell" class="app-shell hidden">
     <header class="topbar">
       <div>
         <div class="eyebrow">PROJECT CONTROL</div>
