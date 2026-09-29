@@ -3,7 +3,6 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 const state = {
   apiUrl: 'https://project-register-api.onrender.com',
-  token: sessionStorage.getItem('projectRegisterToken') || '',
   user: null,
   projects: [],
   customers: [],
@@ -59,13 +58,12 @@ void fetch(api('/api/health'), { cache: 'no-store' }).catch(() => {});
 
 async function request(path, options = {}) {
   const headers = { ...(options.headers || {}) };
-  if (state.token) headers.Authorization = `Bearer ${state.token}`;
   if (options.body && typeof options.body !== 'string') {
     headers['Content-Type'] = 'application/json';
     options.body = JSON.stringify(options.body);
   }
   let response;
-  try { response = await fetch(api(path), { ...options, headers }); }
+  try { response = await fetch(api(path), { ...options, headers, credentials: 'include' }); }
   catch { throw new Error('Connection unavailable. Please try again.'); }
   let data = {};
   try { data = await response.json(); } catch {}
@@ -125,9 +123,7 @@ async function completeMicrosoftSignIn() {
       method: 'POST',
       body: { code }
     });
-    state.token = r.token;
     state.user = r.user;
-    sessionStorage.setItem('projectRegisterToken', state.token);
     setText($('#busyTitle'), 'Loading projects…');
     setText($('#busyText'), 'Preparing the project register.');
     await loadCoreData();
@@ -216,7 +212,6 @@ function canEditCustomers() {
 }
 
 function clearSession() {
-  state.token = '';
   state.user = null;
   state.projects = [];
   state.customers = [];
@@ -224,6 +219,7 @@ function clearSession() {
   state.users = [];
   state.selectedNumber = null;
   state.editableOnly = false;
+  // Remove the legacy browser token if this browser used an older version.
   sessionStorage.removeItem('projectRegisterToken');
   if (state.view === 'users') state.view = 'all';
   updateAuthUi();
@@ -241,7 +237,6 @@ function updateAuthUi() {
 }
 
 async function restoreSession() {
-  if (!state.token) return;
   try {
     const { user } = await request('/api/auth/me');
     state.user = user;
@@ -1006,9 +1001,7 @@ $('#authForm').addEventListener('submit', async e => {
 
   try {
     const r = await loginRequest(password);
-    state.token = r.token;
     state.user = r.user;
-    sessionStorage.setItem('projectRegisterToken', state.token);
     $('#pinInput').value = '';
     $('#authDialog').close();
     setText($('#busyTitle'), 'Loading projects…');
