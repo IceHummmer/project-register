@@ -90,6 +90,55 @@ async function loginRequest(password) {
   }
   throw lastError;
 }
+function cleanMicrosoftAuthParams() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete('auth_code');
+  url.searchParams.delete('auth_error');
+  const clean = `${url.pathname}${url.search}${url.hash}`;
+  window.history.replaceState({}, document.title, clean);
+}
+
+async function completeMicrosoftSignIn() {
+  const url = new URL(window.location.href);
+  const code = url.searchParams.get('auth_code') || '';
+  const authError = url.searchParams.get('auth_error') || '';
+  if (!code && !authError) return false;
+
+  cleanMicrosoftAuthParams();
+
+  if (authError) {
+    showNotice(authError, 'error');
+    return true;
+  }
+
+  if (!beginBusy('Signing in with Microsoft…', 'Checking your Project Register access.')) return true;
+  try {
+    const r = await request('/api/auth/microsoft/exchange', {
+      method: 'POST',
+      body: { code }
+    });
+    state.token = r.token;
+    state.user = r.user;
+    sessionStorage.setItem('projectRegisterToken', state.token);
+    setText($('#busyTitle'), 'Loading projects…');
+    setText($('#busyText'), 'Preparing the project register.');
+    await loadCoreData();
+    showNotice(`Signed in as ${state.user.username}.`);
+  } catch (error) {
+    clearSession();
+    showNotice(error.message, 'error');
+  } finally {
+    endBusy();
+  }
+  return true;
+}
+
+function startMicrosoftSignIn() {
+  if (state.operationBusy) return;
+  beginBusy('Opening Microsoft sign-in…', 'Redirecting to your company Microsoft account.');
+  window.location.assign(api('/api/auth/microsoft/start'));
+}
+
 
 function escapeText(value) { return value == null ? '' : String(value); }
 function setText(el, value) { if (el) el.textContent = escapeText(value); }
@@ -390,69 +439,130 @@ function renderUsers() {
 
   const addCard = document.createElement('form');
   addCard.className = 'user-add-card';
-  addCard.innerHTML = '<div><strong>Add user</strong><span>Create a user and choose the access level.</span></div>';
-  const nameInput = document.createElement('input'); nameInput.placeholder = 'User name'; nameInput.required = true;
+  const nameInput = document.createElement('input');
+  nameInput.placeholder = 'User name';
+  nameInput.required = true;
+  const microsoftInput = document.createElement('input');
+  microsoftInput.type = 'email';
+  microsoftInput.placeholder = 'Microsoft account';
+  microsoftInput.required = true;
   const roleSelect = makeRoleSelect('pm');
-  const passwordInput = document.createElement('input'); passwordInput.type = 'password'; passwordInput.placeholder = 'Password'; passwordInput.required = true;
-  const addBtn = document.createElement('button'); addBtn.className = 'btn btn-primary'; addBtn.type = 'submit'; addBtn.textContent = 'Add user';
-  addCard.append(nameInput, roleSelect, passwordInput, addBtn);
+  const addBtn = document.createElement('button');
+  addBtn.className = 'btn btn-primary';
+  addBtn.type = 'submit';
+  addBtn.textContent = 'Add user';
+  addCard.append(nameInput, microsoftInput, roleSelect, addBtn);
   addCard.addEventListener('submit', async e => {
     e.preventDefault();
     try {
-      await request('/api/users', { method: 'POST', body: { username: nameInput.value, role: roleSelect.value, password: passwordInput.value } });
+      await request('/api/users', {
+        method: 'POST',
+        body: {
+          username: nameInput.value,
+          microsoftAccount: microsoftInput.value,
+          role: roleSelect.value
+        }
+      });
       await Promise.all([loadUsers(), refreshLookups()]);
       renderUsers();
       showNotice('User added.');
-    } catch (error) { showNotice(error.message, 'error'); }
+    } catch (error) {
+      showNotice(error.message, 'error');
+    }
   });
   container.append(addCard);
 
   const q = $('#searchInput').value.trim().toLowerCase();
-  const users = state.users.filter(u => !q || u.username.toLowerCase().includes(q) || roleLabel(u.role).toLowerCase().includes(q));
+  const users = state.users.filter(u =>
+    !q ||
+    u.username.toLowerCase().includes(q) ||
+    String(u.microsoftAccount || '').toLowerCase().includes(q) ||
+    roleLabel(u.role).toLowerCase().includes(q)
+  );
 
-  const wrap = document.createElement('div'); wrap.className = 'table-wrap users-table-wrap';
-  const table = document.createElement('table'); table.className = 'users-table';
-  table.innerHTML = '<thead><tr><th>User</th><th>Access</th><th>Password</th><th>Actions</th></tr></thead>';
+  const wrap = document.createElement('div');
+  wrap.className = 'table-wrap users-table-wrap';
+  const table = document.createElement('table');
+  table.className = 'users-table';
+  table.innerHTML = '<thead><tr><th>User</th><th>Microsoft account</th><th>Access</th><th>Emergency PIN</th><th>Actions</th></tr></thead>';
   const body = document.createElement('tbody');
 
   for (const u of users) {
     const tr = document.createElement('tr');
 
     const userTd = document.createElement('td');
-    const strong = document.createElement('strong'); strong.textContent = u.username; userTd.append(strong);
+    const strong = document.createElement('strong');
+    strong.textContent = u.username;
+    userTd.append(strong);
+
+    const accountTd = document.createElement('td');
+    const account = document.createElement('input');
+    account.type = 'email';
+    account.className = 'password-reset';
+    account.placeholder = 'name@helsinginhitsaus.fi';
+    account.value = u.microsoftAccount || '';
+    accountTd.append(account);
+    if (u.microsoftLinked) {
+      const linked = document.createElement('span');
+      linked.className = 'account-linked';
+      linked.textContent = 'Linked';
+      accountTd.append(linked);
+    }
 
     const accessTd = document.createElement('td');
     let accessControl;
     if (u.role === 'admin') {
-      accessControl = document.createElement('span'); accessControl.className = 'access-label'; accessControl.textContent = 'Main administrator';
+      accessControl = document.createElement('span');
+      accessControl.className = 'access-label';
+      accessControl.textContent = 'Main administrator';
     } else {
       accessControl = makeRoleSelect(u.role);
     }
     accessTd.append(accessControl);
 
     const passwordTd = document.createElement('td');
-    const pass = document.createElement('input'); pass.type = 'password'; pass.className = 'password-reset'; pass.placeholder = 'New password (optional)';
-    passwordTd.append(pass);
+    let pass = null;
+    if (u.role === 'admin') {
+      pass = document.createElement('input');
+      pass.type = 'password';
+      pass.className = 'password-reset';
+      pass.placeholder = 'New emergency PIN';
+      passwordTd.append(pass);
+    } else {
+      passwordTd.textContent = '—';
+      passwordTd.className = 'muted';
+    }
 
-    const actionsTd = document.createElement('td'); actionsTd.className = 'user-actions';
-    const save = document.createElement('button'); save.className = 'btn'; save.type = 'button'; save.textContent = 'Save';
+    const actionsTd = document.createElement('td');
+    actionsTd.className = 'user-actions';
+    const save = document.createElement('button');
+    save.className = 'btn';
+    save.type = 'button';
+    save.textContent = 'Save';
     save.addEventListener('click', async () => {
-      const payload = {};
+      const payload = { microsoftAccount: account.value };
       if (u.role !== 'admin') payload.role = accessControl.value;
-      if (pass.value) payload.password = pass.value;
-      if (!Object.keys(payload).length) return showNotice('Nothing to save.');
+      if (pass?.value) payload.password = pass.value;
       try {
-        await request(`/api/users/${encodeURIComponent(u.username)}`, { method: 'PUT', body: payload });
-        pass.value = '';
+        await request(`/api/users/${encodeURIComponent(u.username)}`, {
+          method: 'PUT',
+          body: payload
+        });
+        if (pass) pass.value = '';
         await Promise.all([loadUsers(), refreshLookups()]);
         renderUsers();
         showNotice('User updated.');
-      } catch (error) { showNotice(error.message, 'error'); }
+      } catch (error) {
+        showNotice(error.message, 'error');
+      }
     });
     actionsTd.append(save);
 
     if (u.role !== 'admin') {
-      const del = document.createElement('button'); del.className = 'btn btn-danger'; del.type = 'button'; del.textContent = 'Delete';
+      const del = document.createElement('button');
+      del.className = 'btn btn-danger';
+      del.type = 'button';
+      del.textContent = 'Delete';
       del.addEventListener('click', async () => {
         if (!confirm(`Delete user ${u.username}?`)) return;
         try {
@@ -460,16 +570,20 @@ function renderUsers() {
           await Promise.all([loadUsers(), refreshLookups()]);
           renderUsers();
           showNotice('User deleted.');
-        } catch (error) { showNotice(error.message, 'error'); }
+        } catch (error) {
+          showNotice(error.message, 'error');
+        }
       });
       actionsTd.append(del);
     }
 
-    tr.append(userTd, accessTd, passwordTd, actionsTd);
+    tr.append(userTd, accountTd, accessTd, passwordTd, actionsTd);
     body.append(tr);
   }
 
-  table.append(body); wrap.append(table); container.append(wrap);
+  table.append(body);
+  wrap.append(table);
+  container.append(wrap);
   content.replaceChildren(container);
 }
 
@@ -760,6 +874,7 @@ $('#syncFolderBtn').addEventListener('click',syncFolder);
 $('#mailStubBtn').addEventListener('click',requestUpdateStub);
 $('#manageCustomersBtn').addEventListener('click',()=>openCustomers());
 $('#authBtn').addEventListener('click',()=>$('#authDialog').showModal());
+$('#microsoftLoginBtn').addEventListener('click', startMicrosoftSignIn);
 $$('[data-close-dialog]').forEach(btn => btn.addEventListener('click', () => btn.closest('dialog')?.close()));
 
 $('#authForm').addEventListener('submit', async e => {
@@ -803,5 +918,6 @@ $('#customerForm').addEventListener('submit',e=>{e.preventDefault();saveCustomer
 $('#resetCustomerBtn').addEventListener('click',()=>{$('#customerForm').reset();$('#customerForm').elements.id.value='';});
 $('#closeCustomerDialog').addEventListener('click',()=>$('#customerDialog').close());
 
-await restoreSession();
+const microsoftRedirectHandled = await completeMicrosoftSignIn();
+if (!microsoftRedirectHandled) await restoreSession();
 render();
