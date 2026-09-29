@@ -230,6 +230,8 @@ function clearSession() {
   sessionStorage.removeItem('projectRegisterToken');
   if (state.view === 'users') state.view = 'all';
   updateAuthUi();
+  setLandingStatus('');
+  setLandingReady(true);
   render();
 }
 
