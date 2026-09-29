@@ -390,3 +390,73 @@ tbody tr:hover {
 @media (max-width: 700px) {
   .project-folder-row { grid-template-columns: 1fr; }
 }
+
+.login-landing {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background:
+    radial-gradient(circle at top left, rgba(147,108,69,.08), transparent 34%),
+    linear-gradient(145deg, #f8f5f1 0%, #eee7df 100%);
+}
+.login-landing-card {
+  width: min(440px, 100%);
+  padding: 30px;
+  border: 1px solid #dfd2c5;
+  border-radius: 18px;
+  background: rgba(255,253,250,.96);
+  box-shadow: 0 18px 55px rgba(63,45,30,.12);
+}
+.login-landing-card h1 {
+  margin: 0 0 8px;
+  color: #3b2d23;
+  font-size: 30px;
+  line-height: 1.15;
+}
+.login-landing-card > p {
+  margin: 0 0 22px;
+  color: #76675b;
+  line-height: 1.5;
+}
+.login-ms-btn {
+  width: 100%;
+  min-height: 44px;
+}
+.login-landing-status {
+  min-height: 20px;
+  margin: 0 0 12px;
+  color: #7a6859;
+  font-size: 12px;
+}
+.login-landing-status:empty {
+  display: none;
+}
+.login-landing-status.error {
+  padding: 10px 12px;
+  border: 1px solid #e5c2bb;
+  border-radius: 9px;
+  background: #fff1ef;
+  color: #8b342a;
+}
+.login-emergency {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #e7ded5;
+}
+.login-emergency summary {
+  cursor: pointer;
+  color: #6f5947;
+  font-size: 13px;
+  font-weight: 700;
+}
+.login-emergency .btn {
+  width: 100%;
+  margin-top: 12px;
+}
+.login-brand {
+  margin-top: 22px;
+  color: #9b8b7d;
+  font-size: 11px;
+  text-align: center;
+}
