@@ -79,12 +79,41 @@ tbody tr.selected { background: #f2e9df; outline: 1px solid #d1b99d; outline-off
 .field span { color: #50606d; font-weight: 750; font-size: 11px; }
 .field input, .field select { width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: 9px 10px; min-height: 39px; background: white; outline: none; }
 .field input[readonly] { background: #f5f7f8; color: #687782; }
+.project-folder-field { gap: 7px; }
+.project-folder-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; }
+.project-folder-row input { min-width: 0; }
+.project-folder-buttons { grid-template-columns: auto auto; justify-content: start; }
+.project-folder-help { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 11px; color: var(--muted); }
+.project-folder-help a { color: var(--accent); font-weight: 700; text-decoration: none; }
+.project-folder-help a:hover { text-decoration: underline; }
+.opener-install-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.opener-install-actions .btn { text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
 .span-2 { grid-column: span 2; }
 .span-3 { grid-column: span 3; }
 .section-label { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--accent); font-size: 11px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 20px; }
 .modal-actions.split { justify-content: space-between; }
 .help { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.delete-code {
+  margin: 18px 0;
+  padding: 14px 16px;
+  border: 1px dashed #c9b39d;
+  border-radius: 12px;
+  background: #f8f2eb;
+  color: #3b2d23;
+  text-align: center;
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 850;
+  letter-spacing: .22em;
+  user-select: text;
+}
+#deleteCodeInput {
+  text-transform: uppercase;
+  letter-spacing: .18em;
+  font-weight: 800;
+  text-align: center;
+}
 .identity-card { background: #f8f4ef; border: 1px solid #e7d9ca; padding: 15px; border-radius: 11px; display: flex; justify-content: space-between; gap: 20px; }
 .identity-card span { color: var(--muted); }
 .customer-form { display: grid; grid-template-columns: 1.2fr 1.2fr 1fr 1.2fr auto; gap: 10px; align-items: end; margin-bottom: 16px; }
@@ -356,4 +385,8 @@ tbody tr:hover {
   .filter-toggle {
     flex: 0 0 auto;
   }
+}
+
+@media (max-width: 700px) {
+  .project-folder-row { grid-template-columns: 1fr; }
 }
