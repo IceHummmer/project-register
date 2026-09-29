@@ -308,3 +308,52 @@ tbody tr:hover {
   border-radius: 9px;
   background: #fffdfa;
 }
+
+
+/* Project editability filter */
+.filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.filter-toggle:hover {
+  border-color: #c4b29f;
+  background: #fbf8f4;
+}
+.filter-toggle input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+/* Read-only project card */
+#projectForm[data-read-only="true"] .field input:disabled,
+#projectForm[data-read-only="true"] .field select:disabled {
+  opacity: 1;
+  color: var(--ink);
+  background: #f8f5f1;
+  border-color: #e1d7cd;
+  cursor: default;
+  -webkit-text-fill-color: var(--ink);
+}
+#projectForm[data-read-only="true"] .section-label {
+  color: #80654d;
+}
+
+@media (max-width: 900px) {
+  .toolbar-right {
+    flex-wrap: wrap;
+  }
+  .filter-toggle {
+    flex: 0 0 auto;
+  }
+}
