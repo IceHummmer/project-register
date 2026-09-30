@@ -88,6 +88,7 @@ tbody tr.selected { background: #f2e9df; outline: 1px solid #d1b99d; outline-off
 .project-folder-help a:hover { text-decoration: underline; }
 .opener-install-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .opener-install-actions .btn { text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+.opener-existing { margin-top: 10px; }
 .span-2 { grid-column: span 2; }
 .span-3 { grid-column: span 3; }
 .section-label { margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--accent); font-size: 11px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
