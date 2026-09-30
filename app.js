@@ -22,6 +22,8 @@ let openerFallbackProject = null;
 let openerAttemptSequence = 0;
 let openerLaunchBusy = false;
 
+const OPENER_INSTALL_KEY = 'projectRegisterOpenerInstalled';
+
 const viewInfo = {
   all: ['All Projects', ''],
   plan: ['Projects in Plan', 'Projects currently in planning.'],
@@ -1102,6 +1104,37 @@ const ONEDRIVE_WEB_HOME = 'https://helsinginhitsaus-my.sharepoint.com/my';
 const ONEDRIVE_PERSONAL_DOCUMENTS = '/personal/andrey_helsinginhitsaus_fi/Documents';
 const ONEDRIVE_VIEW_ID = 'af5a1adf-7528-4d65-88d6-5fac1ea8ba82';
 
+function processOpenerInstallMarker() {
+  const url = new URL(window.location.href);
+  const status = url.searchParams.get('opener');
+
+  if (status === 'installed') {
+    localStorage.setItem(OPENER_INSTALL_KEY, '1');
+    url.searchParams.delete('opener');
+    const clean = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState({}, document.title, clean);
+    return 'installed';
+  }
+
+  if (status === 'removed') {
+    localStorage.removeItem(OPENER_INSTALL_KEY);
+    url.searchParams.delete('opener');
+    const clean = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState({}, document.title, clean);
+    return 'removed';
+  }
+
+  return '';
+}
+
+function openerKnownInstalled() {
+  return localStorage.getItem(OPENER_INSTALL_KEY) === '1';
+}
+
+function markOpenerInstalled() {
+  localStorage.setItem(OPENER_INSTALL_KEY, '1');
+}
+
 function projectWebFolderUrl(project) {
   const stored = String(project?.folderLink || '').trim();
   if (/^https?:\/\//i.test(stored)) return stored;
@@ -1145,12 +1178,17 @@ function setOpenerLaunchBusy(busy) {
   }
 }
 
-function openFolder(project = projectForOpenFolder()) {
+function openFolder(project = projectForOpenFolder(), { force = false } = {}) {
   if (openerLaunchBusy) return;
 
   const folderPath = localProjectFolderPath(project);
   if (!folderPath) {
     return showNotice('Synchronize the project folder first.', 'error');
+  }
+
+  if (!force && !openerKnownInstalled()) {
+    showOpenerHelp(project);
+    return;
   }
 
   setOpenerLaunchBusy(true);
@@ -1234,6 +1272,12 @@ $('#editProjectBtn').addEventListener('click',()=>{const p=selectedProject();if(
 $('#openFolderBtn').addEventListener('click', () => openFolder(selectedProject()));
 $('#openProjectFolderBtn').addEventListener('click', () => openFolder(projectForOpenFolder()));
 $('#openProjectFolderWebBtn').addEventListener('click', () => openFolderWeb(projectForOpenFolder()));
+$('#openerAlreadyInstalledBtn').addEventListener('click', () => {
+  const project = openerFallbackProject;
+  markOpenerInstalled();
+  $('#openerHelpDialog').close();
+  openFolder(project, { force: true });
+});
 $('#openerWebFallbackBtn').addEventListener('click', () => {
   const project = openerFallbackProject;
   $('#openerHelpDialog').close();
@@ -1322,8 +1366,14 @@ $('#customerForm').addEventListener('submit',e=>{e.preventDefault();saveCustomer
 $('#resetCustomerBtn').addEventListener('click',()=>{$('#customerForm').reset();$('#customerForm').elements.id.value='';});
 $('#closeCustomerDialog').addEventListener('click',()=>$('#customerDialog').close());
 
+const openerInstallStatus = processOpenerInstallMarker();
+
 updateAuthUi();
 render();
+
+if (openerInstallStatus === 'installed') {
+  setLandingStatus('Folder opener installed. You can sign in and use Open folder.');
+}
 
 const microsoftRedirectHandled = await completeMicrosoftSignIn();
 if (!microsoftRedirectHandled) await restoreSession();
