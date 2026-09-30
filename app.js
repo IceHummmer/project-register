@@ -22,7 +22,7 @@ let openerFallbackProject = null;
 let openerAttemptSequence = 0;
 let openerLaunchBusy = false;
 
-const OPENER_INSTALL_KEY = 'projectRegisterOpenerInstalled';
+const OPENER_INSTALL_KEY = 'projectRegisterOpenerInstalledV2';
 
 const viewInfo = {
   all: ['All Projects', ''],
@@ -1131,10 +1131,6 @@ function openerKnownInstalled() {
   return localStorage.getItem(OPENER_INSTALL_KEY) === '1';
 }
 
-function markOpenerInstalled() {
-  localStorage.setItem(OPENER_INSTALL_KEY, '1');
-}
-
 function projectWebFolderUrl(project) {
   const stored = String(project?.folderLink || '').trim();
   if (/^https?:\/\//i.test(stored)) return stored;
@@ -1178,7 +1174,7 @@ function setOpenerLaunchBusy(busy) {
   }
 }
 
-function openFolder(project = projectForOpenFolder(), { force = false } = {}) {
+function openFolder(project = projectForOpenFolder()) {
   if (openerLaunchBusy) return;
 
   const folderPath = localProjectFolderPath(project);
@@ -1186,7 +1182,7 @@ function openFolder(project = projectForOpenFolder(), { force = false } = {}) {
     return showNotice('Synchronize the project folder first.', 'error');
   }
 
-  if (!force && !openerKnownInstalled()) {
+  if (!openerKnownInstalled()) {
     showOpenerHelp(project);
     return;
   }
@@ -1272,12 +1268,6 @@ $('#editProjectBtn').addEventListener('click',()=>{const p=selectedProject();if(
 $('#openFolderBtn').addEventListener('click', () => openFolder(selectedProject()));
 $('#openProjectFolderBtn').addEventListener('click', () => openFolder(projectForOpenFolder()));
 $('#openProjectFolderWebBtn').addEventListener('click', () => openFolderWeb(projectForOpenFolder()));
-$('#openerAlreadyInstalledBtn').addEventListener('click', () => {
-  const project = openerFallbackProject;
-  markOpenerInstalled();
-  $('#openerHelpDialog').close();
-  openFolder(project, { force: true });
-});
 $('#openerWebFallbackBtn').addEventListener('click', () => {
   const project = openerFallbackProject;
   $('#openerHelpDialog').close();
