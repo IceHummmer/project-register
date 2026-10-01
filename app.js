@@ -14,7 +14,11 @@ const state = {
   selectedNumber: null,
   editingNumber: null,
   operationBusy: false,
-  editableOnly: false
+  editableOnly: false,
+  backendReady: false,
+  microsoftSignInQueued: false,
+  microsoftRedirecting: false,
+  backendWakeFailed: false
 };
 
 let pendingDeleteChallenge = null;
@@ -75,7 +79,7 @@ async function request(path, options = {}) {
   let data = {};
   try { data = await response.json(); } catch {}
   if (!response.ok) {
-    if (response.status === 401 && path !== '/api/auth/login') clearSession();
+    if (response.status === 401 && !['/api/auth/login', '/api/auth/me'].includes(path)) clearSession();
     throw new Error(data.error || `Request failed (${response.status})`);
   }
   return data;
@@ -144,12 +148,52 @@ async function completeMicrosoftSignIn() {
   return true;
 }
 
-function startMicrosoftSignIn() {
-  if (state.operationBusy) return;
-  setLandingReady(false);
-  setLandingStatus('Opening Microsoft sign-in…');
-  beginBusy('Opening Microsoft sign-in…', 'Redirecting to your company Microsoft account.');
+function updateLandingMicrosoftButton() {
+  const button = $('#landingMicrosoftLoginBtn');
+  const spinner = $('#landingMicrosoftSpinner');
+  const label = $('#landingMicrosoftText');
+  if (!button || !spinner || !label) return;
+
+  button.disabled = Boolean(state.microsoftRedirecting);
+  button.classList.toggle('is-preparing', !state.backendReady || state.microsoftRedirecting);
+  spinner.classList.toggle('hidden', state.backendReady && !state.microsoftRedirecting);
+
+  if (state.microsoftRedirecting) {
+    setText(label, 'Opening Microsoft sign-in…');
+  } else if (state.backendWakeFailed) {
+    setText(label, 'Try sign in again');
+  } else if (!state.backendReady && state.microsoftSignInQueued) {
+    setText(label, 'Starting secure server…');
+  } else if (!state.backendReady) {
+    setText(label, 'Preparing sign in…');
+  } else {
+    setText(label, 'Sign in with Microsoft');
+  }
+}
+
+function performMicrosoftRedirect() {
+  if (state.microsoftRedirecting) return;
+  state.microsoftSignInQueued = false;
+  state.microsoftRedirecting = true;
+  state.backendWakeFailed = false;
+  updateLandingMicrosoftButton();
+  setLandingStatus('Opening your company Microsoft sign-in…');
   window.location.assign(api('/api/auth/microsoft/start'));
+}
+
+function startMicrosoftSignIn() {
+  if (state.operationBusy || state.microsoftRedirecting) return;
+
+  if (state.backendReady) {
+    performMicrosoftRedirect();
+    return;
+  }
+
+  state.microsoftSignInQueued = true;
+  state.backendWakeFailed = false;
+  updateLandingMicrosoftButton();
+  setLandingStatus('Secure server is starting. Sign-in will continue automatically.');
+  void ensureBackendReady();
 }
 
 
@@ -220,7 +264,7 @@ function canEditCustomers() {
   return state.user?.access === 'edit_all' || state.user?.access === 'edit_own';
 }
 
-function clearSession() {
+function clearSession({ backendReady = state.backendReady } = {}) {
   state.user = null;
   state.projects = [];
   state.customers = [];
@@ -228,12 +272,13 @@ function clearSession() {
   state.users = [];
   state.selectedNumber = null;
   state.editableOnly = false;
+  state.backendReady = Boolean(backendReady);
   // Remove the legacy browser token if this browser used an older version.
   sessionStorage.removeItem('projectRegisterToken');
   if (state.view === 'users') state.view = 'all';
   updateAuthUi();
   setLandingStatus('');
-  setLandingReady(true);
+  setLandingReady(state.backendReady);
   render();
 }
 
@@ -245,8 +290,9 @@ function setLandingStatus(message = '', error = false) {
 }
 
 function setLandingReady(ready) {
-  $('#landingMicrosoftLoginBtn').disabled = !ready;
-  $('#landingEmergencyBtn').disabled = !ready;
+  state.backendReady = Boolean(ready);
+  $('#landingEmergencyBtn').disabled = !state.backendReady;
+  updateLandingMicrosoftButton();
 }
 
 function updateAuthUi() {
@@ -265,36 +311,64 @@ function isWakeError(error) {
   return /Connection unavailable|Request failed \((502|503|504)\)/i.test(String(error?.message || ''));
 }
 
+let backendWakePromise = null;
+
 async function restoreSession() {
   setLandingReady(false);
-  setLandingStatus('Connecting securely…');
+  state.backendWakeFailed = false;
+  updateLandingMicrosoftButton();
+  setLandingStatus('');
 
   let lastError = null;
   for (let attempt = 1; attempt <= 12; attempt++) {
     try {
       const { user } = await request('/api/auth/me');
+      state.backendReady = true;
       state.user = user;
+      updateLandingMicrosoftButton();
       await loadCoreData();
       setLandingStatus('');
-      return;
+      return true;
     } catch (error) {
       lastError = error;
 
       if (!isWakeError(error)) {
-        clearSession();
-        setLandingReady(true);
+        state.backendReady = true;
+        state.backendWakeFailed = false;
+        updateLandingMicrosoftButton();
+
+        if (state.microsoftSignInQueued) {
+          performMicrosoftRedirect();
+          return true;
+        }
+
+        clearSession({ backendReady: true });
         setLandingStatus('');
-        return;
+        return true;
       }
 
-      setLandingStatus(attempt < 3 ? 'Starting secure server…' : 'Still starting secure server…');
+      state.backendReady = false;
+      updateLandingMicrosoftButton();
+      if (state.microsoftSignInQueued) {
+        setLandingStatus('Secure server is starting. Sign-in will continue automatically.');
+      }
       await wait(3000);
     }
   }
 
-  clearSession();
-  setLandingReady(true);
-  setLandingStatus(lastError?.message || 'Server is temporarily unavailable.', true);
+  state.backendReady = false;
+  state.backendWakeFailed = true;
+  state.microsoftSignInQueued = false;
+  updateLandingMicrosoftButton();
+  setLandingStatus('Secure server is taking longer than usual. Click Try sign in again.', true);
+  return false;
+}
+
+function ensureBackendReady() {
+  if (state.backendReady) return Promise.resolve(true);
+  if (backendWakePromise) return backendWakePromise;
+  backendWakePromise = restoreSession().finally(() => { backendWakePromise = null; });
+  return backendWakePromise;
 }
 
 async function loadCoreData() {
@@ -1336,7 +1410,7 @@ $('#authForm').addEventListener('submit', async e => {
 });
 $('#logoutBtn').addEventListener('click',async()=>{
   try{await request('/api/auth/logout',{method:'POST'});}catch{}
-  $('#authDialog').close();clearSession();showNotice('Signed out.');
+  $('#authDialog').close();clearSession({ backendReady: true });showNotice('Signed out.');
 });
 $('#projectForm').addEventListener('submit',e=>{e.preventDefault();saveProject();});
 $('#deleteProjectBtn').addEventListener('click',deleteProject);
@@ -1366,6 +1440,6 @@ if (openerInstallStatus === 'installed') {
 }
 
 const microsoftRedirectHandled = await completeMicrosoftSignIn();
-if (!microsoftRedirectHandled) await restoreSession();
+if (!microsoftRedirectHandled) await ensureBackendReady();
 updateAuthUi();
 render();
