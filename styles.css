@@ -215,7 +215,8 @@ body.is-busy { overflow: hidden; }
 @keyframes busy-spin { to { transform: rotate(360deg); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .busy-spinner { animation-duration: 1.8s; }
+  .busy-spinner,
+  .login-inline-spinner { animation-duration: 1.8s; }
 }
 
 
@@ -423,6 +424,25 @@ tbody tr:hover {
 .login-ms-btn {
   width: 100%;
   min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+.login-ms-btn.is-preparing {
+  cursor: pointer;
+}
+.login-inline-spinner {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border: 2px solid rgba(255,255,255,.42);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: login-spin .8s linear infinite;
+}
+@keyframes login-spin {
+  to { transform: rotate(360deg); }
 }
 .login-landing-status {
   min-height: 20px;
