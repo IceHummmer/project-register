@@ -17,8 +17,9 @@
 
       <div id="landingStatus" class="login-landing-status">Connecting securely…</div>
 
-      <button id="landingMicrosoftLoginBtn" class="btn btn-primary login-ms-btn" type="button" disabled>
-        Sign in with Microsoft
+      <button id="landingMicrosoftLoginBtn" class="btn btn-primary login-ms-btn is-preparing" type="button">
+        <span id="landingMicrosoftSpinner" class="login-inline-spinner" aria-hidden="true"></span>
+        <span id="landingMicrosoftText">Preparing sign in…</span>
       </button>
 
       <details class="login-emergency">
