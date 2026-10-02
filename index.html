@@ -184,14 +184,17 @@
         <div><div class="eyebrow">OPEN PROJECT FOLDER</div><h3>Folder opener is required</h3></div>
         <button class="icon-btn" type="button" data-close-dialog aria-label="Close">×</button>
       </div>
-      <p class="help">Project Register Folder Opener is not detected in this browser. Install it once on this computer, then use Open folder again.</p>
+      <p class="help">Project Register Folder Opener is not enabled in this browser. Install it once on this computer. If it is already installed, enable it for this browser below.</p>
       <div class="opener-install-actions">
         <a class="btn btn-primary" href="https://api.project-register.helsinginhitsaus.fi/opener/windows" download>Install Windows opener</a>
         <a class="btn" href="https://api.project-register.helsinginhitsaus.fi/opener/macos" download>Install Mac opener</a>
       </div>
-      <div class="modal-actions">
-        <button id="openerWebFallbackBtn" class="btn hidden" type="button">Open in OneDrive web</button>
-        <button class="btn" type="button" data-close-dialog>Close</button>
+      <div class="modal-actions split">
+        <button id="openerConfirmInstalledBtn" class="btn" type="button">Already installed? Enable in this browser</button>
+        <div class="action-row">
+          <button id="openerWebFallbackBtn" class="btn hidden" type="button">Open in OneDrive web</button>
+          <button class="btn" type="button" data-close-dialog>Close</button>
+        </div>
       </div>
     </div>
   </dialog>
