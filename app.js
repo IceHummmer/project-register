@@ -1342,6 +1342,11 @@ $('#editProjectBtn').addEventListener('click',()=>{const p=selectedProject();if(
 $('#openFolderBtn').addEventListener('click', () => openFolder(selectedProject()));
 $('#openProjectFolderBtn').addEventListener('click', () => openFolder(projectForOpenFolder()));
 $('#openProjectFolderWebBtn').addEventListener('click', () => openFolderWeb(projectForOpenFolder()));
+$('#openerConfirmInstalledBtn').addEventListener('click', () => {
+  localStorage.setItem(OPENER_INSTALL_KEY, '1');
+  $('#openerHelpDialog').close();
+  showNotice('Folder opener enabled for this browser. Use Open folder again.');
+});
 $('#openerWebFallbackBtn').addEventListener('click', () => {
   const project = openerFallbackProject;
   $('#openerHelpDialog').close();
