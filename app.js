@@ -1497,7 +1497,7 @@ async function activateView(view) {
   } catch(e) { showNotice(e.message,'error'); }
 }
 
-$('.tab').forEach(btn=>btn.addEventListener('click',()=>activateView(btn.dataset.view)));
+document.querySelectorAll('.tab').forEach(btn=>btn.addEventListener('click',()=>activateView(btn.dataset.view)));
 $('#zoomOutBtn')?.addEventListener('click', () => { state.tableZoom = Math.max(70, state.tableZoom - 10); updateTableDisplay(); });
 $('#zoomInBtn')?.addEventListener('click', () => { state.tableZoom = Math.min(130, state.tableZoom + 10); updateTableDisplay(); });
 $('#zoomLevelBtn')?.addEventListener('click', () => { state.tableZoom = 100; updateTableDisplay(); });
