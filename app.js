@@ -327,7 +327,14 @@ async function restoreSession() {
   let lastError = null;
   for (let attempt = 1; attempt <= 12; attempt++) {
     try {
-      const { user } = await request('/api/auth/me');
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
+      let user;
+      try {
+        ({ user } = await request('/api/auth/me', { signal: controller.signal }));
+      } finally {
+        clearTimeout(timer);
+      }
       state.backendReady = true;
       state.user = user;
       updateLandingMicrosoftButton();
@@ -354,9 +361,9 @@ async function restoreSession() {
 
       state.backendReady = false;
       updateLandingMicrosoftButton();
-      if (state.microsoftSignInQueued) {
-        setLandingStatus('Secure server is starting. Sign-in will continue automatically.');
-      }
+      setLandingStatus(state.microsoftSignInQueued
+        ? `Secure server is starting… (attempt ${attempt}/12). Sign-in will continue automatically.`
+        : `Connecting to secure server… (attempt ${attempt}/12)`);
       await wait(3000);
     }
   }
@@ -838,17 +845,23 @@ function renderUsers() {
 
 function updateTableDisplay() {
   const workspace = $('.workspace');
+  if (!workspace) return;
   workspace.classList.toggle('is-fullscreen', state.tableFullscreen);
   document.body.classList.toggle('workspace-expanded', state.tableFullscreen);
   workspace.style.setProperty('--table-scale', String(state.tableZoom / 100));
-  $('#zoomLevelBtn').textContent = `${state.tableZoom}%`;
-  $('#zoomOutBtn').disabled = state.tableZoom <= 70;
-  $('#zoomInBtn').disabled = state.tableZoom >= 130;
+  const zoomLevel = $('#zoomLevelBtn');
+  if (zoomLevel) zoomLevel.textContent = `${state.tableZoom}%`;
+  const zoomOut = $('#zoomOutBtn');
+  if (zoomOut) zoomOut.disabled = state.tableZoom <= 70;
+  const zoomIn = $('#zoomInBtn');
+  if (zoomIn) zoomIn.disabled = state.tableZoom >= 130;
   const expand = $('#fullscreenTableBtn');
-  expand.textContent = state.tableFullscreen ? '⤡' : '⤢';
-  expand.title = state.tableFullscreen ? 'Exit table fullscreen' : 'Open table fullscreen';
-  expand.setAttribute('aria-label', expand.title);
-  expand.setAttribute('aria-pressed', String(state.tableFullscreen));
+  if (expand) {
+    expand.textContent = state.tableFullscreen ? '⤡' : '⤢';
+    expand.title = state.tableFullscreen ? 'Exit table fullscreen' : 'Open table fullscreen';
+    expand.setAttribute('aria-label', expand.title);
+    expand.setAttribute('aria-pressed', String(state.tableFullscreen));
+  }
 }
 
 function renderToolbar() {
@@ -875,7 +888,8 @@ function render() {
   setText($('#viewSubtitle'), subtitle);
   $('#viewSubtitle').classList.toggle('hidden', !subtitle);
   renderMetrics();
-  $('#updatesRequiredCount').textContent = state.user
+  const overdueCount = $('#updatesRequiredCount');
+  if (overdueCount) overdueCount.textContent = state.user
     ? String(state.projects.filter(p => overdueProjectInfo(p)).length)
     : '0';
   updateAuthUi();
@@ -1484,10 +1498,10 @@ async function activateView(view) {
 }
 
 $('.tab').forEach(btn=>btn.addEventListener('click',()=>activateView(btn.dataset.view)));
-$('#zoomOutBtn').addEventListener('click', () => { state.tableZoom = Math.max(70, state.tableZoom - 10); updateTableDisplay(); });
-$('#zoomInBtn').addEventListener('click', () => { state.tableZoom = Math.min(130, state.tableZoom + 10); updateTableDisplay(); });
-$('#zoomLevelBtn').addEventListener('click', () => { state.tableZoom = 100; updateTableDisplay(); });
-$('#fullscreenTableBtn').addEventListener('click', () => { state.tableFullscreen = !state.tableFullscreen; updateTableDisplay(); });
+$('#zoomOutBtn')?.addEventListener('click', () => { state.tableZoom = Math.max(70, state.tableZoom - 10); updateTableDisplay(); });
+$('#zoomInBtn')?.addEventListener('click', () => { state.tableZoom = Math.min(130, state.tableZoom + 10); updateTableDisplay(); });
+$('#zoomLevelBtn')?.addEventListener('click', () => { state.tableZoom = 100; updateTableDisplay(); });
+$('#fullscreenTableBtn')?.addEventListener('click', () => { state.tableFullscreen = !state.tableFullscreen; updateTableDisplay(); });
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && state.tableFullscreen && !document.querySelector('dialog[open]')) {
     state.tableFullscreen = false;
