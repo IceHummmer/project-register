@@ -952,6 +952,9 @@ function requiredProjectFields(status) {
 
 function updateProjectRequiredFields() {
   const form = $('#projectForm');
+  $('#projectValidation').classList.add('hidden');
+  form.querySelectorAll('.field-invalid').forEach(label => label.classList.remove('field-invalid'));
+  form.querySelectorAll('[aria-invalid="true"]').forEach(field => field.removeAttribute('aria-invalid'));
   const readOnly = form.dataset.readOnly === 'true';
   const required = requiredProjectFields(form.elements.status.value);
   for (const label of form.querySelectorAll('label.field')) {
