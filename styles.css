@@ -511,3 +511,9 @@ tbody tr:hover {
   .toolbar-right { flex-wrap: wrap; }
   .fullscreen-table-btn { margin-left: auto; }
 }
+
+/* Keep the entire toolbar usable without horizontal clipping at laptop widths. */
+.workspace .toolbar { flex-wrap: wrap; }
+.workspace .toolbar-left { flex: 0 1 auto; flex-wrap: wrap; }
+.workspace .toolbar-right { flex: 1 1 auto; min-width: 0; justify-content: flex-end; }
+.workspace .toolbar-right .search-field input { width: clamp(145px, 18vw, 240px); }
