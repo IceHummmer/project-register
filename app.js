@@ -275,6 +275,8 @@ function clearSession({ backendReady = state.backendReady } = {}) {
   state.users = [];
   state.selectedNumber = null;
   state.editableOnly = false;
+  state.tableFullscreen = false;
+  state.tableZoom = 100;
   state.backendReady = Boolean(backendReady);
   // Remove the legacy browser token if this browser used an older version.
   sessionStorage.removeItem('projectRegisterToken');
