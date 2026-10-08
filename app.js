@@ -15,6 +15,8 @@ const state = {
   editingNumber: null,
   operationBusy: false,
   editableOnly: false,
+  tableZoom: 100,
+  tableFullscreen: false,
   backendReady: false,
   microsoftSignInQueued: false,
   microsoftRedirecting: false,
@@ -34,6 +36,7 @@ const viewInfo = {
   progress: ['Projects in Progress', 'Active projects.'],
   completed: ['Completed Projects', 'Completed projects.'],
   refusal: ['Projects in Refusal', 'Rejected projects.'],
+  overdue: ['Updates Required', 'Projects with overdue schedule information that needs review.'],
   customers: ['Customers', 'Customer contacts.'],
   audit: ['Audit Log', 'Project change history.'],
   users: ['Users & Access', 'Manage users, passwords and access rights.']
@@ -409,11 +412,42 @@ function projectGroup(project) {
   return 'unknown';
 }
 
+// Compare ISO date strings as calendar dates, not instants, to avoid timezone drift.
+function todayLocalIso() {
+  const d = new Date();
+  const pad = v => String(v).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function daysSince(isoDate, today = todayLocalIso()) {
+  const asUtc = v => Date.parse(`${v}T00:00:00Z`);
+  return Math.floor((asUtc(today) - asUtc(isoDate)) / 86400000);
+}
+
+function overdueProjectInfo(project, today = todayLocalIso()) {
+  if (project.status === 'Rejected' || project.status === 'Completed') return null;
+  const reasons = [];
+  const dueDates = [];
+
+  if (project.startPlan && project.startPlan < today && !project.startFact) {
+    reasons.push('Actual start date missing');
+    dueDates.push(project.startPlan);
+  }
+  if (project.endPlan && project.endPlan < today) {
+    reasons.push(project.endFact ? 'Project status update required' : 'Project completion update required');
+    dueDates.push(project.endPlan);
+  }
+  if (!reasons.length) return null;
+  return { reasons, days: daysSince(dueDates.sort()[0], today) };
+}
+
 function filteredProjects() {
   const q = $('#searchInput').value.trim().toLowerCase();
   return state.projects
     .filter(p => {
-      if (state.view !== 'all' && projectGroup(p) !== state.view) return false;
+      if (state.view === 'overdue') {
+        if (!overdueProjectInfo(p)) return false;
+      } else if (state.view !== 'all' && projectGroup(p) !== state.view) return false;
       if (state.editableOnly && !p.canEdit) return false;
       if (!q) return true;
       return Object.values(p).some(v => String(v ?? '').toLowerCase().includes(q));
@@ -443,6 +477,7 @@ function renderMetrics() {
 function renderProjectTable() {
   const content = $('#content');
   const projects = filteredProjects();
+  const showingOverdue = state.view === 'overdue';
   if (!state.user) {
     content.innerHTML = '<div class="empty-state"><div><h3>Sign in</h3><p>Sign in to load data</p></div></div>';
     return;
@@ -450,7 +485,14 @@ function renderProjectTable() {
   const wrap = document.createElement('div'); wrap.className = 'table-wrap';
   const table = document.createElement('table');
   const thead = document.createElement('thead'); const hr = document.createElement('tr');
-  projectColumns.forEach(([, label]) => { const th = document.createElement('th'); th.textContent = label; hr.append(th); });
+  projectColumns.forEach(([key, label]) => {
+    const th = document.createElement('th'); th.textContent = label; hr.append(th);
+    if (showingOverdue && key === 'projectName') {
+      for (const label of ['Update required', 'Overdue by']) {
+        const extra = document.createElement('th'); extra.textContent = label; hr.append(extra);
+      }
+    }
+  });
   thead.append(hr); table.append(thead);
   const tbody = document.createElement('tbody');
   for (const p of projects) {
@@ -470,6 +512,16 @@ function renderProjectTable() {
         td.title = escapeText(p[key]);
       }
       tr.append(td);
+      if (showingOverdue && key === 'projectName') {
+        const overdue = overdueProjectInfo(p);
+        const reason = document.createElement('td');
+        reason.className = 'overdue-reason';
+        reason.textContent = overdue?.reasons.join('; ') || '';
+        reason.title = reason.textContent;
+        const days = document.createElement('td');
+        days.textContent = overdue ? `${overdue.days} d.` : '';
+        tr.append(reason, days);
+      }
     }
     tbody.append(tr);
   }
@@ -782,8 +834,23 @@ function renderUsers() {
   content.replaceChildren(container);
 }
 
+function updateTableDisplay() {
+  const workspace = $('.workspace');
+  workspace.classList.toggle('is-fullscreen', state.tableFullscreen);
+  document.body.classList.toggle('workspace-expanded', state.tableFullscreen);
+  workspace.style.setProperty('--table-scale', String(state.tableZoom / 100));
+  $('#zoomLevelBtn').textContent = `${state.tableZoom}%`;
+  $('#zoomOutBtn').disabled = state.tableZoom <= 70;
+  $('#zoomInBtn').disabled = state.tableZoom >= 130;
+  const expand = $('#fullscreenTableBtn');
+  expand.textContent = state.tableFullscreen ? '⤡' : '⤢';
+  expand.title = state.tableFullscreen ? 'Exit table fullscreen' : 'Open table fullscreen';
+  expand.setAttribute('aria-label', expand.title);
+  expand.setAttribute('aria-pressed', String(state.tableFullscreen));
+}
+
 function renderToolbar() {
-  const projectView = ['all','plan','progress','completed','refusal'].includes(state.view);
+  const projectView = ['all','plan','progress','completed','refusal','overdue'].includes(state.view);
   const canEdit = canEditProjects();
   $('#addProjectBtn').classList.toggle('hidden', !projectView || !canEdit);
   $('#editProjectBtn').classList.toggle('hidden', !projectView || !canEdit);
@@ -806,7 +873,11 @@ function render() {
   setText($('#viewSubtitle'), subtitle);
   $('#viewSubtitle').classList.toggle('hidden', !subtitle);
   renderMetrics();
+  $('#updatesRequiredCount').textContent = state.user
+    ? String(state.projects.filter(p => overdueProjectInfo(p)).length)
+    : '0';
   updateAuthUi();
+  updateTableDisplay();
   renderToolbar();
   if (state.view === 'customers') renderCustomers();
   else if (state.view === 'audit') renderAudit();
@@ -860,6 +931,81 @@ function updateDurations() {
   const f = $('#projectForm').elements;
   f.durationPlan.value = duration(f.startPlan.value, f.endPlan.value);
   f.durationFact.value = duration(f.startFact.value, f.endFact.value);
+}
+
+function requiredProjectFields(status) {
+  const names = new Set(['projectName', 'status']);
+  if (status !== 'Rejected') {
+    ['customer','activityType','customerRepresentative','startPlan','endPlan'].forEach(n => names.add(n));
+  }
+  if (['Confirmed','In Progress','Completed'].includes(status)) {
+    ['projectManager','costExpected','currency','contract'].forEach(n => names.add(n));
+  }
+  if (['In Progress','Completed'].includes(status)) {
+    ['workLocation','startFact'].forEach(n => names.add(n));
+  }
+  if (status === 'Completed') ['endFact','costActual'].forEach(n => names.add(n));
+  return names;
+}
+
+function updateProjectRequiredFields() {
+  const form = $('#projectForm');
+  const readOnly = form.dataset.readOnly === 'true';
+  const required = requiredProjectFields(form.elements.status.value);
+  for (const label of form.querySelectorAll('label.field')) {
+    const field = label.querySelector('input[name],select[name]');
+    const text = label.querySelector('span');
+    if (!field || !text) continue;
+    if (!text.dataset.baseLabel) text.dataset.baseLabel = text.textContent.replace(/\s*\*$/, '');
+    text.textContent = text.dataset.baseLabel + (required.has(field.name) ? ' *' : '');
+    field.required = !readOnly && required.has(field.name);
+  }
+  const needsContact = form.elements.status.value !== 'Rejected';
+  const contactHint = needsContact ? ' Enter at least one contact: phone or email.' : '';
+  $('#projectRequiredHelp').textContent = 'Fields marked * are required.' + contactHint;
+}
+
+function validateProjectForm() {
+  const form = $('#projectForm');
+  const fields = form.elements;
+  const required = requiredProjectFields(fields.status.value);
+  form.querySelectorAll('.field-invalid').forEach(label => label.classList.remove('field-invalid'));
+  form.querySelectorAll('[aria-invalid="true"]').forEach(field => field.removeAttribute('aria-invalid'));
+  const errors = [];
+  let firstInvalid = null;
+  const mark = name => {
+    const field = fields[name];
+    if (!field) return;
+    field.setAttribute('aria-invalid', 'true');
+    field.closest('.field')?.classList.add('field-invalid');
+    firstInvalid ||= field;
+  };
+  for (const name of required) {
+    if (!String(fields[name]?.value ?? '').trim()) {
+      mark(name);
+      errors.push(`${fields[name]?.closest('.field')?.querySelector('span')?.dataset.baseLabel || name} is required`);
+    }
+  }
+  if (fields.status.value !== 'Rejected' && !fields.customerPhone.value.trim() && !fields.customerEmail.value.trim()) {
+    mark('customerPhone');
+    mark('customerEmail');
+    errors.push('Enter a customer phone number or email address');
+  }
+  if (fields.customerEmail.value && !fields.customerEmail.validity.valid) {
+    mark('customerEmail'); errors.push('Customer email address is invalid');
+  }
+  if (fields.startPlan.value && fields.endPlan.value && fields.endPlan.value < fields.startPlan.value) {
+    mark('endPlan'); errors.push('Planned end cannot be before planned start');
+  }
+  if (fields.startFact.value && fields.endFact.value && fields.endFact.value < fields.startFact.value) {
+    mark('endFact'); errors.push('Actual end cannot be before actual start');
+  }
+  if (errors.length) {
+    $('#projectValidation').textContent = errors.join('; ');
+    $('#projectValidation').classList.remove('hidden');
+    firstInvalid?.focus();
+  }
+  return !errors.length;
 }
 
 function populateProjectSelects() {
@@ -942,6 +1088,7 @@ function openProjectEditor(project = null) {
     projectManager: state.user?.access === 'edit_own' ? state.user.username : ''
   });
   setProjectDialogMode({ project, readOnly });
+  updateProjectRequiredFields();
   $('#projectDialog').showModal();
 }
 
@@ -957,6 +1104,7 @@ async function saveProject() {
   if (state.operationBusy) return;
   const validation = $('#projectValidation');
   validation.classList.add('hidden');
+  if (!validateProjectForm()) return;
   const payload = formPayload($('#projectForm'));
   const editing = Boolean(state.editingNumber);
   const idempotencyKey = operationKey();
@@ -1330,7 +1478,24 @@ async function activateView(view) {
   } catch(e) { showNotice(e.message,'error'); }
 }
 
-$$('.tab').forEach(btn=>btn.addEventListener('click',()=>activateView(btn.dataset.view)));
+$('.tab').forEach(btn=>btn.addEventListener('click',()=>activateView(btn.dataset.view)));
+$('#zoomOutBtn').addEventListener('click', () => { state.tableZoom = Math.max(70, state.tableZoom - 10); updateTableDisplay(); });
+$('#zoomInBtn').addEventListener('click', () => { state.tableZoom = Math.min(130, state.tableZoom + 10); updateTableDisplay(); });
+$('#zoomLevelBtn').addEventListener('click', () => { state.tableZoom = 100; updateTableDisplay(); });
+$('#fullscreenTableBtn').addEventListener('click', () => { state.tableFullscreen = !state.tableFullscreen; updateTableDisplay(); });
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && state.tableFullscreen && !document.querySelector('dialog[open]')) {
+    state.tableFullscreen = false;
+    updateTableDisplay();
+  }
+});
+let lastOverdueDay = todayLocalIso();
+window.addEventListener('focus', () => {
+  if (todayLocalIso() !== lastOverdueDay) { lastOverdueDay = todayLocalIso(); render(); }
+});
+window.setInterval(() => {
+  if (todayLocalIso() !== lastOverdueDay) { lastOverdueDay = todayLocalIso(); render(); }
+}, 60000);
 $('#searchInput').addEventListener('input',render);
 $('#editableOnlyToggle').addEventListener('change', e => {
   state.editableOnly = Boolean(e.target.checked);
@@ -1428,7 +1593,15 @@ $('#deleteConfirmDialog').addEventListener('close', () => {
   $('#deleteCodeInput').value = '';
   $('#deleteValidation').classList.add('hidden');
 });
+$('#projectForm').elements.status.addEventListener('change',updateProjectRequiredFields);
 $('#projectForm').elements.customer.addEventListener('change',()=>refreshRepresentativeOptions());
+$('#projectForm').addEventListener('input', event => {
+  const field = event.target;
+  if (field.matches('input, select')) {
+    field.removeAttribute('aria-invalid');
+    field.closest('.field')?.classList.remove('field-invalid');
+  }
+});
 $('#projectForm').elements.customerRepresentative.addEventListener('change',applyRepresentativeContact);
 ['startPlan','endPlan','startFact','endFact'].forEach(n=>$('#projectForm').elements[n].addEventListener('change',updateDurations));
 $('#customerForm').addEventListener('submit',e=>{e.preventDefault();saveCustomer();});
