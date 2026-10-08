@@ -63,6 +63,7 @@
         <button class="tab" data-view="progress">Projects in Progress</button>
         <button class="tab" data-view="completed">Completed Projects</button>
         <button class="tab" data-view="refusal">Projects in Refusal</button>
+        <button class="tab" data-view="overdue">Updates Required <span id="updatesRequiredCount" class="tab-count" aria-label="projects requiring updates">0</span></button>
         <button class="tab" data-view="customers">Customers</button>
         <button class="tab" data-view="audit">Audit Log</button>
         <button id="usersTab" class="tab hidden" data-view="users">Users &amp; Access</button>
@@ -79,6 +80,11 @@
             <button id="manageCustomersBtn" class="btn btn-primary hidden" type="button">+ Add customer / representative</button>
           </div>
           <div class="toolbar-right">
+            <div class="table-zoom-controls" aria-label="Table zoom">
+              <button id="zoomOutBtn" class="zoom-btn" type="button" aria-label="Zoom out" title="Zoom out">−</button>
+              <button id="zoomLevelBtn" class="zoom-label" type="button" title="Reset table zoom to 100%">100%</button>
+              <button id="zoomInBtn" class="zoom-btn" type="button" aria-label="Zoom in" title="Zoom in">+</button>
+            </div>
             <label id="editableOnlyControl" class="filter-toggle hidden">
               <input id="editableOnlyToggle" type="checkbox" />
               <span>Editable only</span>
@@ -87,6 +93,7 @@
               <span>Search</span>
               <input id="searchInput" type="search" placeholder="Number, project, customer…" autocomplete="off" />
             </label>
+            <button id="fullscreenTableBtn" class="zoom-btn fullscreen-table-btn" type="button" aria-label="Open table fullscreen" title="Open table fullscreen" aria-pressed="false">⤢</button>
           </div>
         </div>
 
@@ -124,7 +131,7 @@
   </dialog>
 
   <dialog id="projectDialog" class="modal modal-wide">
-    <form method="dialog" class="modal-card" id="projectForm">
+    <form method="dialog" class="modal-card" id="projectForm" novalidate>
       <div class="modal-header">
         <div><div class="eyebrow" id="projectModeLabel">PROJECT</div><h3 id="projectDialogTitle">Add project</h3></div>
         <button class="icon-btn" type="button" data-close-dialog aria-label="Close">×</button>
@@ -170,7 +177,8 @@
           </div>
         </div>
       </div>
-      <div id="projectValidation" class="notice notice-error hidden"></div>
+      <p id="projectRequiredHelp" class="project-required-help">Fields marked * are required. Enter at least one contact: phone or email.</p>
+      <div id="projectValidation" class="notice notice-error hidden" role="alert"></div>
       <div class="modal-actions split">
         <div><button id="deleteProjectBtn" class="btn btn-danger hidden" type="button">Delete</button></div>
         <div class="action-row"><button class="btn" type="button" data-close-dialog>Cancel</button><button class="btn btn-primary" id="saveProjectBtn" type="submit">Save project</button></div>
