@@ -6,7 +6,7 @@
   <title>Project Register</title>
   <meta name="theme-color" content="#7a5a3a" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<link rel="stylesheet" href="styles.css?v=20261008b" />
+<link rel="stylesheet" href="styles.css?v=20261008-custom-icons" />
 </head>
 <body>
   <section id="loginLanding" class="login-landing">
@@ -80,11 +80,6 @@
             <button id="manageCustomersBtn" class="btn btn-primary hidden" type="button">+ Add customer / representative</button>
           </div>
           <div class="toolbar-right">
-            <div class="table-zoom-controls" aria-label="Table zoom">
-              <button id="zoomOutBtn" class="zoom-btn" type="button" aria-label="Zoom out" title="Zoom out">−</button>
-              <button id="zoomLevelBtn" class="zoom-label" type="button" title="Reset table zoom to 100%">100%</button>
-              <button id="zoomInBtn" class="zoom-btn" type="button" aria-label="Zoom in" title="Zoom in">+</button>
-            </div>
             <label id="editableOnlyControl" class="filter-toggle hidden">
               <input id="editableOnlyToggle" type="checkbox" />
               <span>Editable only</span>
@@ -93,7 +88,14 @@
               <span>Search</span>
               <input id="searchInput" type="search" placeholder="Number, project, customer…" autocomplete="off" />
             </label>
-            <button id="fullscreenTableBtn" class="zoom-btn fullscreen-table-btn" type="button" aria-label="Open table fullscreen" title="Open table fullscreen" aria-pressed="false">⤢</button>
+            <div class="table-view-controls">
+              <div class="table-zoom-controls" aria-label="Table zoom">
+                <button id="zoomOutBtn" class="zoom-btn" type="button" aria-label="Zoom out" title="Zoom out">−</button>
+                <button id="zoomLevelBtn" class="zoom-label" type="button" title="Reset table zoom to 100%">100%</button>
+                <button id="zoomInBtn" class="zoom-btn" type="button" aria-label="Zoom in" title="Zoom in">+</button>
+              </div>
+              <button id="fullscreenTableBtn" class="zoom-btn fullscreen-table-btn" type="button" aria-label="Open table fullscreen" title="Open table fullscreen" aria-pressed="false"></button>
+            </div>
           </div>
         </div>
 
@@ -251,6 +253,6 @@
     </div>
   </div>
 
-  <script type="module" src="app.js?v=b893b691-20261008"></script>
+  <script type="module" src="app.js?v=20261008-custom-icons"></script>
 </body>
 </html>

@@ -857,7 +857,7 @@ function updateTableDisplay() {
   if (zoomIn) zoomIn.disabled = state.tableZoom >= 130;
   const expand = $('#fullscreenTableBtn');
   if (expand) {
-    expand.textContent = state.tableFullscreen ? '⤡' : '⤢';
+    expand.textContent = ''; // The supplied PNG icons are shown by CSS for both states.
     expand.title = state.tableFullscreen ? 'Exit table fullscreen' : 'Open table fullscreen';
     expand.setAttribute('aria-label', expand.title);
     expand.setAttribute('aria-pressed', String(state.tableFullscreen));
