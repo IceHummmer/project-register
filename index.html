@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>Project Register</title>
   <meta name="theme-color" content="#7a5a3a" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<link rel="stylesheet" href="styles.css?v=20261008-custom-icons" />
+<link rel="stylesheet" href="styles.css?v=20261009-zoom-sort-presence" />
 </head>
 <body>
   <section id="loginLanding" class="login-landing">
@@ -44,6 +44,7 @@
         <h1>Project Register</h1>
       </div>
       <div class="topbar-actions">
+        <div id="otherActiveUsers" class="other-active-users hidden" aria-label="Other users currently online" aria-live="polite"></div>
         <button id="authBtn" class="btn btn-dark" type="button">Sign in</button>
       </div>
     </header>
@@ -253,6 +254,6 @@
     </div>
   </div>
 
-  <script type="module" src="app.js?v=20261009-auto-refresh"></script>
+  <script type="module" src="app.js?v=20261009-zoom-sort-presence"></script>
 </body>
 </html>
