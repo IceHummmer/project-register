@@ -643,3 +643,27 @@ tbody tr:hover {
 .bulk-mail-recipient { display: block; font-size: 11px; color: #6e5b49; margin-top: 3px; overflow-wrap: anywhere; }
 .bulk-mail-recipient.missing { color: #a9332a; font-weight: 650; }
 .bulk-mail-table tbody tr.bulk-mail-no-recipient { background: #fff7f3; }
+
+
+/* One review-and-save action for all edits in Users & Access. */
+.user-access-save-bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  background: #f8fafb;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.user-access-draft-count {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.user-access-draft-count.unsaved { color: #88562d; }
+.user-access-save-bar .btn { min-width: 142px; }
+@media (max-width: 560px) {
+  .user-access-save-bar { justify-content: space-between; }
+  .user-access-save-bar .btn { flex: 0 0 auto; width: auto; }
+}
