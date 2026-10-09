@@ -1,5 +1,6 @@
 // Optional PWA installation. Normal website and HTML file launching remain unchanged.
 let installPrompt = null;
+let installationCompleted = false;
 const installButton = document.querySelector('#installAppBtn');
 const installDialog = document.querySelector('#installAppDialog');
 const installHelpText = document.querySelector('#installAppInstructions');
@@ -10,7 +11,7 @@ function isInstalledApp() {
     || window.navigator.standalone === true;
 }
 function refreshInstallButton() {
-  if (installButton) installButton.hidden = isInstalledApp();
+  if (installButton) installButton.hidden = installationCompleted || isInstalledApp();
 }
 function installationInstructions() {
   const agent = navigator.userAgent || '';
@@ -62,6 +63,7 @@ window.addEventListener('beforeinstallprompt', event => {
 });
 window.addEventListener('appinstalled', () => {
   installPrompt = null;
+  installationCompleted = true;
   refreshInstallButton();
 });
 window.matchMedia('(display-mode: standalone)').addEventListener?.('change', refreshInstallButton);
