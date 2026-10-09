@@ -1124,9 +1124,6 @@ function validateProjectForm() {
     mark('customerEmail');
     errors.push('Enter a customer phone number or email address');
   }
-  if (fields.customerEmail.value && !fields.customerEmail.validity.valid) {
-    mark('customerEmail'); errors.push('Customer email address is invalid');
-  }
   if (fields.startPlan.value && fields.endPlan.value && fields.endPlan.value < fields.startPlan.value) {
     mark('endPlan'); errors.push('Planned end cannot be before planned start');
   }
