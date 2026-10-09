@@ -17,6 +17,8 @@ const state = {
   editableOnly: false,
   tableZoom: 100,
   tableFullscreen: false,
+  numberSortDirection: 'desc',
+  otherActiveUsers: [],
   backendReady: false,
   microsoftSignInQueued: false,
   microsoftRedirecting: false,
@@ -277,6 +279,7 @@ function clearSession({ backendReady = state.backendReady } = {}) {
   state.editableOnly = false;
   state.tableFullscreen = false;
   state.tableZoom = 100;
+  state.otherActiveUsers = [];
   state.backendReady = Boolean(backendReady);
   // Remove the legacy browser token if this browser used an older version.
   sessionStorage.removeItem('projectRegisterToken');
@@ -300,6 +303,40 @@ function setLandingReady(ready) {
   updateLandingMicrosoftButton();
 }
 
+function renderOtherActiveUsers() {
+  const wrap = $('#otherActiveUsers');
+  if (!wrap) return;
+  const others = state.user ? state.otherActiveUsers : [];
+  wrap.classList.toggle('hidden', !others.length);
+  wrap.parentElement?.classList.toggle('has-online-peers', Boolean(others.length));
+  wrap.replaceChildren();
+  for (const username of others) {
+    const chip = document.createElement('span');
+    chip.className = 'online-peer';
+    chip.textContent = username;
+    chip.title = 'Currently active on Project Register';
+    wrap.append(chip);
+  }
+}
+
+let presenceRequestInFlight = false;
+async function refreshPresence() {
+  if (!state.user || presenceRequestInFlight || document.visibilityState === 'hidden') return;
+  presenceRequestInFlight = true;
+  try {
+    const data = await request('/api/presence', { method: 'POST', cache: 'no-store' });
+    if (!state.user) return;
+    const names = Array.isArray(data.others) ? data.others : [];
+    state.otherActiveUsers = [...new Set(names
+      .filter(name => typeof name === 'string' && name.trim() && name !== state.user.username))];
+    renderOtherActiveUsers();
+  } catch (error) {
+    console.warn('Active user presence unavailable:', error.message);
+  } finally {
+    presenceRequestInFlight = false;
+  }
+}
+
 function updateAuthUi() {
   const loggedIn = Boolean(state.user);
   $('#loginLanding').classList.toggle('hidden', loggedIn);
@@ -309,6 +346,7 @@ function updateAuthUi() {
   setText($('#authUserName'), state.user?.username || '');
   setText($('#authUserRole'), rolesLabel(state.user));
   setText($('#authBtn'), loggedIn ? state.user.username : 'Sign in');
+  renderOtherActiveUsers();
   $('#usersTab').classList.toggle('hidden', !state.user?.canManageUsers);
 }
 
@@ -397,6 +435,7 @@ async function loadCoreData() {
   if (state.view === 'audit') await loadAudit();
   if (state.view === 'users' && state.user.canManageUsers) await loadUsers();
   render();
+  void refreshPresence();
 }
 
 // Refresh stale project lists without interrupting an open editor.
@@ -480,6 +519,15 @@ function overdueProjectInfo(project, today = todayLocalIso()) {
   return { reasons, days: daysSince(dueDates.sort()[0], today) };
 }
 
+function compareProjectNumbers(a, b) {
+  const aRaw = String(a.orderNumber || '');
+  const bRaw = String(b.orderNumber || '');
+  const aNumber = Number(aRaw.replace(/\D/g, '')) || 0;
+  const bNumber = Number(bRaw.replace(/\D/g, '')) || 0;
+  const delta = aNumber - bNumber || aRaw.localeCompare(bRaw, undefined, { numeric: true });
+  return state.numberSortDirection === 'asc' ? delta : -delta;
+}
+
 function filteredProjects() {
   const q = $('#searchInput').value.trim().toLowerCase();
   return state.projects
@@ -491,12 +539,7 @@ function filteredProjects() {
       if (!q) return true;
       return Object.values(p).some(v => String(v ?? '').toLowerCase().includes(q));
     })
-    .sort((a, b) => {
-      const aNumber = Number(String(a.orderNumber || '').replace(/\D/g, '')) || 0;
-      const bNumber = Number(String(b.orderNumber || '').replace(/\D/g, '')) || 0;
-      if (aNumber !== bNumber) return bNumber - aNumber;
-      return String(b.orderNumber || '').localeCompare(String(a.orderNumber || ''), undefined, { numeric: true });
-    });
+    .sort(compareProjectNumbers);
 }
 
 function renderMetrics() {
@@ -525,7 +568,31 @@ function renderProjectTable() {
   const table = document.createElement('table');
   const thead = document.createElement('thead'); const hr = document.createElement('tr');
   projectColumns.forEach(([key, label]) => {
-    const th = document.createElement('th'); th.textContent = label; hr.append(th);
+    const th = document.createElement('th');
+    if (key === 'orderNumber') {
+      th.setAttribute('aria-sort', state.numberSortDirection === 'asc' ? 'ascending' : 'descending');
+      const sort = document.createElement('button');
+      sort.type = 'button';
+      sort.className = 'order-sort-button';
+      sort.title = state.numberSortDirection === 'desc'
+        ? 'Sort order number: oldest first' : 'Sort order number: newest first';
+      sort.setAttribute('aria-label', sort.title);
+      const text = document.createElement('span');
+      text.textContent = label;
+      const arrow = document.createElement('span');
+      arrow.className = 'order-sort-arrow';
+      arrow.setAttribute('aria-hidden', 'true');
+      arrow.textContent = state.numberSortDirection === 'desc' ? '↓' : '↑';
+      sort.append(text, arrow);
+      sort.addEventListener('click', () => {
+        state.numberSortDirection = state.numberSortDirection === 'desc' ? 'asc' : 'desc';
+        renderProjectTable();
+      });
+      th.append(sort);
+    } else {
+      th.textContent = label;
+    }
+    hr.append(th);
     if (showingOverdue && key === 'projectName') {
       for (const label of ['Update required', 'Overdue by']) {
         const extra = document.createElement('th'); extra.textContent = label; hr.append(extra);
@@ -871,6 +938,13 @@ function renderUsers() {
   wrap.append(table);
   container.append(wrap);
   content.replaceChildren(container);
+}
+
+function setTableZoom(value) {
+  const zoom = Math.max(70, Math.min(130, Math.round(Number(value) / 5) * 5));
+  if (!Number.isFinite(zoom) || zoom === state.tableZoom) return;
+  state.tableZoom = zoom;
+  updateTableDisplay();
 }
 
 function updateTableDisplay() {
@@ -1528,10 +1602,42 @@ async function activateView(view) {
 }
 
 document.querySelectorAll('.tab').forEach(btn=>btn.addEventListener('click',()=>activateView(btn.dataset.view)));
-$('#zoomOutBtn')?.addEventListener('click', () => { state.tableZoom = Math.max(70, state.tableZoom - 10); updateTableDisplay(); });
-$('#zoomInBtn')?.addEventListener('click', () => { state.tableZoom = Math.min(130, state.tableZoom + 10); updateTableDisplay(); });
-$('#zoomLevelBtn')?.addEventListener('click', () => { state.tableZoom = 100; updateTableDisplay(); });
+$('#zoomOutBtn')?.addEventListener('click', () => setTableZoom(state.tableZoom - 10));
+$('#zoomInBtn')?.addEventListener('click', () => setTableZoom(state.tableZoom + 10));
+$('#zoomLevelBtn')?.addEventListener('click', () => setTableZoom(100));
 $('#fullscreenTableBtn')?.addEventListener('click', () => { state.tableFullscreen = !state.tableFullscreen; updateTableDisplay(); });
+
+// Desktop: Ctrl + mouse wheel changes table zoom, without scaling the page.
+$('.workspace')?.addEventListener('wheel', event => {
+  if (!event.ctrlKey || !state.user || !['all','plan','progress','completed','refusal','overdue'].includes(state.view)) return;
+  if (!event.deltaY) return;
+  event.preventDefault();
+  setTableZoom(state.tableZoom + (event.deltaY < 0 ? 10 : -10));
+}, { passive: false });
+
+// Touch devices: one finger keeps normal table scrolling; two fingers zoom the table only.
+const tableTouch = { startDistance: 0, startZoom: 100, active: false };
+function touchDistance(touches) {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.hypot(dx, dy);
+}
+$('#content')?.addEventListener('touchstart', event => {
+  if (!state.user || event.touches.length !== 2 || !event.target.closest('.table-wrap')) return;
+  tableTouch.startDistance = touchDistance(event.touches);
+  tableTouch.startZoom = state.tableZoom;
+  tableTouch.active = tableTouch.startDistance > 0;
+}, { passive: true });
+$('#content')?.addEventListener('touchmove', event => {
+  if (!tableTouch.active || event.touches.length !== 2 || !event.cancelable) return;
+  event.preventDefault();
+  setTableZoom(tableTouch.startZoom * touchDistance(event.touches) / tableTouch.startDistance);
+}, { passive: false });
+$('#content')?.addEventListener('touchend', event => {
+  if (event.touches.length < 2) tableTouch.active = false;
+}, { passive: true });
+$('#content')?.addEventListener('touchcancel', () => { tableTouch.active = false; }, { passive: true });
+
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && state.tableFullscreen && !document.querySelector('dialog[open]')) {
     state.tableFullscreen = false;
@@ -1542,14 +1648,19 @@ let lastOverdueDay = todayLocalIso();
 window.addEventListener('focus', () => {
   if (todayLocalIso() !== lastOverdueDay) { lastOverdueDay = todayLocalIso(); render(); }
   void refreshCoreDataIfChanged();
+  void refreshPresence();
 });
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') void refreshCoreDataIfChanged();
+  if (document.visibilityState === 'visible') {
+    void refreshCoreDataIfChanged();
+    void refreshPresence();
+  }
 });
 window.setInterval(() => {
   if (todayLocalIso() !== lastOverdueDay) { lastOverdueDay = todayLocalIso(); render(); }
   void refreshCoreDataIfChanged();
 }, 120000);
+window.setInterval(() => { void refreshPresence(); }, 25000);
 $('#searchInput').addEventListener('input',render);
 $('#editableOnlyToggle').addEventListener('change', e => {
   state.editableOnly = Boolean(e.target.checked);
