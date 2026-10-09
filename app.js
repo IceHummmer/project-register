@@ -606,7 +606,11 @@ function renderProjectTable() {
     tr.dataset.number = p.orderNumber;
     if (p.orderNumber === state.selectedNumber) tr.classList.add('selected');
     tr.addEventListener('click', () => selectProject(p.orderNumber));
-    tr.addEventListener('dblclick', () => openProjectEditor(p));
+    tr.addEventListener('dblclick', () => {
+      // Some mobile browsers also synthesize dblclick after our explicit double tap.
+      if (Date.now() - tableTouch.lastOpenAt < 750) return;
+      openProjectEditor(p);
+    });
     for (const [key] of projectColumns) {
       const td = document.createElement('td');
       if (key === 'status') {
@@ -1615,28 +1619,97 @@ $('.workspace')?.addEventListener('wheel', event => {
   setTableZoom(state.tableZoom + (event.deltaY < 0 ? 10 : -10));
 }, { passive: false });
 
-// Touch devices: one finger keeps normal table scrolling; two fingers zoom the table only.
-const tableTouch = { startDistance: 0, startZoom: 100, active: false };
+// Touch devices: one finger scrolls; double-tap opens the project; two fingers zoom the table.
+const tableTouch = {
+  startDistance: 0, startZoom: 100, active: false,
+  tapStart: null, lastTap: null, ignoreTapUntil: 0, lastOpenAt: 0
+};
+const PROJECT_DOUBLE_TAP_MS = 400;
 function touchDistance(touches) {
   const dx = touches[0].clientX - touches[1].clientX;
   const dy = touches[0].clientY - touches[1].clientY;
   return Math.hypot(dx, dy);
 }
 $('#content')?.addEventListener('touchstart', event => {
-  if (!state.user || event.touches.length !== 2 || !event.target.closest('.table-wrap')) return;
-  tableTouch.startDistance = touchDistance(event.touches);
-  tableTouch.startZoom = state.tableZoom;
-  tableTouch.active = tableTouch.startDistance > 0;
+  if (!state.user) return;
+  if (event.touches.length > 1) {
+    // Never interpret pinch-to-zoom as two taps.
+    tableTouch.tapStart = null;
+    tableTouch.lastTap = null;
+    tableTouch.ignoreTapUntil = Date.now() + 500;
+    if (event.touches.length === 2 && event.target.closest('.table-wrap')) {
+      tableTouch.startDistance = touchDistance(event.touches);
+      tableTouch.startZoom = state.tableZoom;
+      tableTouch.active = tableTouch.startDistance > 0;
+    }
+    return;
+  }
+  if (event.touches.length !== 1 || Date.now() < tableTouch.ignoreTapUntil) return;
+  const row = event.target.closest('tr[data-number]');
+  if (!row || event.target.closest('a, button, input, select, textarea')) {
+    tableTouch.tapStart = null;
+    return;
+  }
+  tableTouch.tapStart = {
+    number: row.dataset.number,
+    identifier: event.touches[0].identifier,
+    x: event.touches[0].clientX,
+    y: event.touches[0].clientY,
+    startedAt: Date.now()
+  };
 }, { passive: true });
 $('#content')?.addEventListener('touchmove', event => {
+  if (event.touches.length > 1) {
+    tableTouch.tapStart = null;
+    tableTouch.lastTap = null;
+  } else if (tableTouch.tapStart && event.touches.length === 1) {
+    const finger = event.touches[0];
+    if (Math.hypot(finger.clientX - tableTouch.tapStart.x, finger.clientY - tableTouch.tapStart.y) > 12) {
+      // Horizontal and vertical swipes must not trigger opening.
+      tableTouch.tapStart = null;
+      tableTouch.lastTap = null;
+    }
+  }
   if (!tableTouch.active || event.touches.length !== 2 || !event.cancelable) return;
   event.preventDefault();
   setTableZoom(tableTouch.startZoom * touchDistance(event.touches) / tableTouch.startDistance);
 }, { passive: false });
 $('#content')?.addEventListener('touchend', event => {
   if (event.touches.length < 2) tableTouch.active = false;
+  const start = tableTouch.tapStart;
+  tableTouch.tapStart = null;
+  if (!start || event.touches.length || event.changedTouches.length !== 1 ||
+      Date.now() < tableTouch.ignoreTapUntil) return;
+  const finger = event.changedTouches[0];
+  if (finger.identifier !== start.identifier || Date.now() - start.startedAt > 500 ||
+      Math.hypot(finger.clientX - start.x, finger.clientY - start.y) > 12) {
+    tableTouch.lastTap = null;
+    return;
+  }
+  const tap = { number: start.number, x: finger.clientX, y: finger.clientY, at: Date.now() };
+  const last = tableTouch.lastTap;
+  if (last && last.number === tap.number &&
+      tap.at - last.at <= PROJECT_DOUBLE_TAP_MS &&
+      Math.hypot(tap.x - last.x, tap.y - last.y) <= 35) {
+    tableTouch.lastTap = null;
+    // Prevent a synthetic click/dblclick from opening the same dialog twice.
+    if (event.cancelable) event.preventDefault();
+    if (!document.querySelector('dialog[open]')) {
+      const project = state.projects.find(p => String(p.orderNumber) === tap.number);
+      if (project) {
+        tableTouch.lastOpenAt = Date.now();
+        openProjectEditor(project);
+      }
+    }
+  } else {
+    tableTouch.lastTap = tap;
+  }
+}, { passive: false });
+$('#content')?.addEventListener('touchcancel', () => {
+  tableTouch.active = false;
+  tableTouch.tapStart = null;
+  tableTouch.lastTap = null;
 }, { passive: true });
-$('#content')?.addEventListener('touchcancel', () => { tableTouch.active = false; }, { passive: true });
 
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && state.tableFullscreen && !document.querySelector('dialog[open]')) {
@@ -1660,7 +1733,7 @@ window.setInterval(() => {
   if (todayLocalIso() !== lastOverdueDay) { lastOverdueDay = todayLocalIso(); render(); }
   void refreshCoreDataIfChanged();
 }, 120000);
-window.setInterval(() => { void refreshPresence(); }, 25000);
+window.setInterval(() => { void refreshPresence(); }, 8000);
 $('#searchInput').addEventListener('input',render);
 $('#editableOnlyToggle').addEventListener('change', e => {
   state.editableOnly = Boolean(e.target.checked);
