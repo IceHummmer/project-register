@@ -985,7 +985,7 @@ function renderToolbar() {
   $('#openFolderBtn').classList.toggle('hidden', !projectView);
   const operationalAdmin = canOperateAdminTools();
   $('#syncFolderBtn').classList.toggle('hidden', !projectView || !operationalAdmin);
-  $('#mailStubBtn').classList.toggle('hidden', !projectView || !operationalAdmin);
+  $('#mailStubBtn').classList.toggle('hidden', state.view !== 'overdue' || !operationalAdmin);
   $('#editableOnlyControl').classList.toggle('hidden', !projectView || !canEdit);
   $('#editableOnlyToggle').checked = Boolean(state.editableOnly);
   $('#manageCustomersBtn').classList.toggle('hidden', state.view !== 'customers' || !canEditCustomers());
@@ -993,7 +993,7 @@ function renderToolbar() {
   $('#editProjectBtn').disabled = !p || !p.canEdit;
   $('#openFolderBtn').disabled = !p || !localProjectFolderPath(p);
   $('#syncFolderBtn').disabled = !operationalAdmin || !p;
-  $('#mailStubBtn').disabled = !operationalAdmin || !p;
+  $('#mailStubBtn').disabled = !operationalAdmin || bulkUpdateMail.sending;
 }
 
 function render() {
@@ -1401,23 +1401,137 @@ async function deleteCustomer(c) {
   } catch(error){showNotice(error.message,'error');}
 }
 
-async function requestProjectUpdate() {
-  const p = selectedProject();
-  if (!p || !canOperateAdminTools() || state.operationBusy) return;
-  if (!confirm(`Send project update request for ${p.orderNumber} – ${p.projectName}?\n\nFrom: system@helsinginhitsaus.fi\nTo (testing): andrey@helsinginhitsaus.fi`)) return;
-  if (!beginBusy('Sending update request…', 'Submitting the request through Microsoft 365.')) return;
+// Each project is mailed individually through the existing admin-only endpoint.
+// Keep one idempotency key per project for safe retries during the same dialog session.
+const bulkUpdateMail = {
+  sending: false,
+  requestKeys: new Map(),
+  accepted: new Set()
+};
+
+function bulkMailInputs() {
+  return [...$('#updateRequestsBody').querySelectorAll('input[type="checkbox"][data-number]')];
+}
+
+function updateMailSelectionUi() {
+  const available = bulkMailInputs().filter(input => !input.disabled);
+  const chosen = available.filter(input => input.checked);
+  const selectAll = $('#updateRequestsSelectAll');
+  selectAll.checked = available.length > 0 && chosen.length === available.length;
+  selectAll.indeterminate = chosen.length > 0 && chosen.length < available.length;
+  selectAll.disabled = bulkUpdateMail.sending || available.length === 0;
+  $('#sendUpdateRequestsBtn').disabled = bulkUpdateMail.sending || chosen.length === 0;
+  $('#updateRequestsSelectedCount').textContent = chosen.length + ' selected';
+}
+
+function setBulkSending(sending) {
+  bulkUpdateMail.sending = sending;
+  $('#closeUpdateRequestsBtn').disabled = sending;
+  $('#cancelUpdateRequestsBtn').disabled = sending;
+  for (const input of bulkMailInputs()) {
+    input.disabled = sending || bulkUpdateMail.accepted.has(input.dataset.number);
+  }
+  updateMailSelectionUi();
+  renderToolbar();
+}
+
+function markMailResult(number, status, message) {
+  const row = [...$('#updateRequestsBody').rows].find(row => row.dataset.number === number);
+  if (!row) return;
+  const result = row.querySelector('.bulk-mail-result');
+  result.className = 'bulk-mail-result ' + status;
+  result.textContent = message;
+  if (status === 'accepted') row.classList.add('bulk-mail-accepted');
+}
+
+function openUpdateRequestsDialog() {
+  if (!canOperateAdminTools() || state.view !== 'overdue' || bulkUpdateMail.sending) return;
+  bulkUpdateMail.accepted.clear();
+  bulkUpdateMail.requestKeys.clear();
+  const tbody = $('#updateRequestsBody');
+  tbody.replaceChildren();
+  const projects = state.projects.filter(p => overdueProjectInfo(p)).sort(compareProjectNumbers);
+  for (const p of projects) {
+    const overdue = overdueProjectInfo(p);
+    const row = document.createElement('tr');
+    row.dataset.number = String(p.orderNumber);
+    const selectCell = document.createElement('td');
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = true;
+    checkbox.dataset.number = String(p.orderNumber);
+    checkbox.setAttribute('aria-label', 'Select project ' + p.orderNumber);
+    checkbox.addEventListener('change', updateMailSelectionUi);
+    selectCell.append(checkbox);
+    row.append(selectCell);
+    const values = [
+      p.orderNumber, p.projectName,
+      overdue ? overdue.reasons.join('; ') : '',
+      overdue ? overdue.days + ' d.' : '',
+      p.projectManager || '—'
+    ];
+    for (const value of values) {
+      const td = document.createElement('td');
+      td.textContent = String(value ?? '');
+      row.append(td);
+    }
+    const result = document.createElement('span');
+    result.className = 'bulk-mail-result';
+    result.setAttribute('aria-live', 'polite');
+    row.lastElementChild.append(result);
+    tbody.append(row);
+  }
+  $('#updateRequestsProgress').textContent = projects.length
+    ? 'Choose which projects should receive a request.'
+    : 'No projects currently require an update.';
+  updateMailSelectionUi();
+  $('#updateRequestsDialog').showModal();
+}
+
+async function sendSelectedProjectUpdates() {
+  if (bulkUpdateMail.sending || !canOperateAdminTools() || state.view !== 'overdue') return;
+  const chosen = bulkMailInputs()
+    .filter(input => input.checked && !input.disabled && !bulkUpdateMail.accepted.has(input.dataset.number))
+    .map(input => input.dataset.number);
+  if (!chosen.length) return;
+  const prompt = 'Send ' + chosen.length + ' separate project update email'
+    + (chosen.length === 1 ? '' : 's')
+    + '?\n\nFrom: system@helsinginhitsaus.fi\nTo (test): andrey@helsinginhitsaus.fi'
+    + '\n\nEach selected project will be emailed individually.';
+  if (!confirm(prompt)) return;
+  setBulkSending(true);
+  let accepted = 0;
+  let failed = 0;
   try {
-    const result = await request('/api/mail/project-update-request', {
-      method: 'POST',
-      headers: { 'X-Idempotency-Key': operationKey() },
-      body: { orderNumber: p.orderNumber }
-    });
-    if (result.accepted) showNotice(result.message || 'Microsoft 365 accepted the email.');
-    else showNotice('Mail server did not confirm acceptance.', 'error');
-  } catch (error) {
-    showNotice(error.message, 'error');
+    for (let i = 0; i < chosen.length; i++) {
+      const number = chosen[i];
+      $('#updateRequestsProgress').textContent =
+        'Sending ' + (i + 1) + ' of ' + chosen.length + ': project ' + number + '…';
+      let key = bulkUpdateMail.requestKeys.get(number);
+      if (!key) {
+        key = operationKey();
+        bulkUpdateMail.requestKeys.set(number, key);
+      }
+      try {
+        const response = await request('/api/mail/project-update-request', {
+          method: 'POST',
+          headers: { 'X-Idempotency-Key': key },
+          body: { orderNumber: number }
+        });
+        if (!response.accepted) throw new Error('Microsoft 365 did not accept the request.');
+        bulkUpdateMail.accepted.add(number);
+        accepted++;
+        markMailResult(number, 'accepted', 'Accepted by Microsoft 365');
+      } catch (error) {
+        failed++;
+        markMailResult(number, 'failed', 'Not confirmed: ' + error.message);
+      }
+    }
+    $('#updateRequestsProgress').textContent =
+      'Finished: ' + accepted + ' accepted, ' + failed + ' not confirmed.'
+      + (failed ? ' Review the errors below and retry only unsuccessful projects.' : '');
   } finally {
-    endBusy();
+    setBulkSending(false);
   }
 }
 
@@ -1779,7 +1893,22 @@ $('#openerHelpDialog').addEventListener('close', () => {
   openerFallbackProject = null;
 });
 $('#syncFolderBtn').addEventListener('click',syncFolder);
-$('#mailStubBtn').addEventListener('click',requestProjectUpdate);
+$('#mailStubBtn').addEventListener('click',openUpdateRequestsDialog);
+$('#sendUpdateRequestsBtn').addEventListener('click',sendSelectedProjectUpdates);
+$('#updateRequestsSelectAll').addEventListener('change', event => {
+  for (const input of bulkMailInputs()) {
+    if (!input.disabled) input.checked = event.target.checked;
+  }
+  updateMailSelectionUi();
+});
+for (const id of ['closeUpdateRequestsBtn', 'cancelUpdateRequestsBtn']) {
+  $('#' + id).addEventListener('click', () => {
+    if (!bulkUpdateMail.sending) $('#updateRequestsDialog').close();
+  });
+}
+$('#updateRequestsDialog').addEventListener('cancel', event => {
+  if (bulkUpdateMail.sending) event.preventDefault();
+});
 $('#manageCustomersBtn').addEventListener('click',()=>openCustomers());
 $('#authBtn').addEventListener('click',()=>$('#authDialog').showModal());
 $('#microsoftLoginBtn').addEventListener('click', startMicrosoftSignIn);
