@@ -265,6 +265,11 @@ function canEditAll() {
   return state.user?.access === 'edit_all';
 }
 
+function canOperateAdminTools() {
+  const roles = normalizeRoles(state.user);
+  return roles.includes('admin') || roles.includes('localAdmin');
+}
+
 function canEditCustomers() {
   return state.user?.access === 'edit_all' || state.user?.access === 'edit_own';
 }
@@ -978,16 +983,17 @@ function renderToolbar() {
   $('#addProjectBtn').classList.toggle('hidden', !projectView || !canEdit);
   $('#editProjectBtn').classList.toggle('hidden', !projectView || !canEdit);
   $('#openFolderBtn').classList.toggle('hidden', !projectView);
-  $('#syncFolderBtn').classList.toggle('hidden', !projectView || !canEdit);
-  $('#mailStubBtn').classList.toggle('hidden', !projectView);
+  const operationalAdmin = canOperateAdminTools();
+  $('#syncFolderBtn').classList.toggle('hidden', !projectView || !operationalAdmin);
+  $('#mailStubBtn').classList.toggle('hidden', !projectView || !operationalAdmin);
   $('#editableOnlyControl').classList.toggle('hidden', !projectView || !canEdit);
   $('#editableOnlyToggle').checked = Boolean(state.editableOnly);
   $('#manageCustomersBtn').classList.toggle('hidden', state.view !== 'customers' || !canEditCustomers());
   const p = selectedProject();
   $('#editProjectBtn').disabled = !p || !p.canEdit;
   $('#openFolderBtn').disabled = !p || !localProjectFolderPath(p);
-  $('#syncFolderBtn').disabled = !p || !p.canEdit;
-  $('#mailStubBtn').disabled = !p || !state.user;
+  $('#syncFolderBtn').disabled = !operationalAdmin || !p;
+  $('#mailStubBtn').disabled = !operationalAdmin || !p;
 }
 
 function render() {
@@ -1395,14 +1401,28 @@ async function deleteCustomer(c) {
   } catch(error){showNotice(error.message,'error');}
 }
 
-async function requestUpdateStub() {
-  const p=selectedProject(); if(!p)return;
-  try { const r=await request('/api/mail/project-update-request',{method:'POST',body:{orderNumber:p.orderNumber}}); showNotice(r.message); }
-  catch(error){showNotice(error.message,'error');}
+async function requestProjectUpdate() {
+  const p = selectedProject();
+  if (!p || !canOperateAdminTools() || state.operationBusy) return;
+  if (!confirm(`Send project update request for ${p.orderNumber} – ${p.projectName}?\n\nFrom: system@helsinginhitsaus.fi\nTo (testing): andrey@helsinginhitsaus.fi`)) return;
+  if (!beginBusy('Sending update request…', 'Submitting the request through Microsoft 365.')) return;
+  try {
+    const result = await request('/api/mail/project-update-request', {
+      method: 'POST',
+      headers: { 'X-Idempotency-Key': operationKey() },
+      body: { orderNumber: p.orderNumber }
+    });
+    if (result.accepted) showNotice(result.message || 'Microsoft 365 accepted the email.');
+    else showNotice('Mail server did not confirm acceptance.', 'error');
+  } catch (error) {
+    showNotice(error.message, 'error');
+  } finally {
+    endBusy();
+  }
 }
 
 async function syncFolder() {
-  if (state.operationBusy) return;
+  if (!canOperateAdminTools() || state.operationBusy) return;
   const p = selectedProject();
   if (!p) return;
   if (!beginBusy('Synchronizing folder…', 'Checking the project folder in OneDrive.')) return;
@@ -1759,7 +1779,7 @@ $('#openerHelpDialog').addEventListener('close', () => {
   openerFallbackProject = null;
 });
 $('#syncFolderBtn').addEventListener('click',syncFolder);
-$('#mailStubBtn').addEventListener('click',requestUpdateStub);
+$('#mailStubBtn').addEventListener('click',requestProjectUpdate);
 $('#manageCustomersBtn').addEventListener('click',()=>openCustomers());
 $('#authBtn').addEventListener('click',()=>$('#authDialog').showModal());
 $('#microsoftLoginBtn').addEventListener('click', startMicrosoftSignIn);
