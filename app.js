@@ -383,17 +383,47 @@ function ensureBackendReady() {
   return backendWakePromise;
 }
 
+let lastCoreDataRefreshAt = 0;
+let coreDataRefreshInFlight = false;
 async function loadCoreData() {
   if (!state.user) return;
-  const bootstrap = await request('/api/bootstrap');
+  const bootstrap = await request('/api/bootstrap', { cache: 'no-store' });
   state.user = bootstrap.user || state.user;
   state.projects = bootstrap.projects || [];
   state.customers = bootstrap.customers || [];
   state.lookups = bootstrap.lookups || {};
   state.oneDrive = bootstrap.oneDrive || { configured: false, connected: false };
+  lastCoreDataRefreshAt = Date.now();
   if (state.view === 'audit') await loadAudit();
   if (state.view === 'users' && state.user.canManageUsers) await loadUsers();
   render();
+}
+
+// Refresh stale project lists without interrupting an open editor.
+async function refreshCoreDataIfChanged() {
+  if (!state.user || state.operationBusy || coreDataRefreshInFlight) return;
+  if (document.visibilityState === 'hidden' || document.querySelector('dialog[open]')) return;
+  if (Date.now() - lastCoreDataRefreshAt < 60000) return;
+  coreDataRefreshInFlight = true;
+  lastCoreDataRefreshAt = Date.now();
+  try {
+    const bootstrap = await request('/api/bootstrap', { cache: 'no-store' });
+    if (!state.user || state.operationBusy || document.querySelector('dialog[open]')) return;
+    const projects = bootstrap.projects || [];
+    const customers = bootstrap.customers || [];
+    if (JSON.stringify(projects) === JSON.stringify(state.projects) &&
+        JSON.stringify(customers) === JSON.stringify(state.customers)) return;
+    state.user = bootstrap.user || state.user;
+    state.projects = projects;
+    state.customers = customers;
+    state.lookups = bootstrap.lookups || {};
+    state.oneDrive = bootstrap.oneDrive || { configured: false, connected: false };
+    render();
+  } catch (error) {
+    console.warn('Project register background refresh failed:', error.message);
+  } finally {
+    coreDataRefreshInFlight = false;
+  }
 }
 
 async function loadAudit() {
@@ -1511,10 +1541,15 @@ document.addEventListener('keydown', event => {
 let lastOverdueDay = todayLocalIso();
 window.addEventListener('focus', () => {
   if (todayLocalIso() !== lastOverdueDay) { lastOverdueDay = todayLocalIso(); render(); }
+  void refreshCoreDataIfChanged();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') void refreshCoreDataIfChanged();
 });
 window.setInterval(() => {
   if (todayLocalIso() !== lastOverdueDay) { lastOverdueDay = todayLocalIso(); render(); }
-}, 60000);
+  void refreshCoreDataIfChanged();
+}, 120000);
 $('#searchInput').addEventListener('input',render);
 $('#editableOnlyToggle').addEventListener('change', e => {
   state.editableOnly = Boolean(e.target.checked);
