@@ -993,7 +993,7 @@ function renderToolbar() {
   $('#editProjectBtn').disabled = !p || !p.canEdit;
   $('#openFolderBtn').disabled = !p || !localProjectFolderPath(p);
   $('#syncFolderBtn').disabled = !operationalAdmin || !p;
-  $('#mailStubBtn').disabled = !operationalAdmin || bulkUpdateMail.sending;
+  $('#mailStubBtn').disabled = !operationalAdmin || bulkUpdateMail.sending || bulkUpdateMail.opening;
 }
 
 function render() {
@@ -1405,6 +1405,8 @@ async function deleteCustomer(c) {
 // Keep one idempotency key per project for safe retries during the same dialog session.
 const bulkUpdateMail = {
   sending: false,
+  opening: false,
+  recipients: new Map(),
   requestKeys: new Map(),
   accepted: new Set()
 };
@@ -1429,7 +1431,8 @@ function setBulkSending(sending) {
   $('#closeUpdateRequestsBtn').disabled = sending;
   $('#cancelUpdateRequestsBtn').disabled = sending;
   for (const input of bulkMailInputs()) {
-    input.disabled = sending || bulkUpdateMail.accepted.has(input.dataset.number);
+    input.disabled = sending || bulkUpdateMail.accepted.has(input.dataset.number)
+      || !bulkUpdateMail.recipients.get(input.dataset.number)?.email;
   }
   updateMailSelectionUi();
   renderToolbar();
@@ -1444,8 +1447,24 @@ function markMailResult(number, status, message) {
   if (status === 'accepted') row.classList.add('bulk-mail-accepted');
 }
 
-function openUpdateRequestsDialog() {
-  if (!canOperateAdminTools() || state.view !== 'overdue' || bulkUpdateMail.sending) return;
+async function openUpdateRequestsDialog() {
+  if (!canOperateAdminTools() || state.view !== 'overdue' ||
+      bulkUpdateMail.sending || bulkUpdateMail.opening) return;
+  bulkUpdateMail.opening = true;
+  renderToolbar();
+  let recipients;
+  try {
+    const preview = await request('/api/mail/project-update-recipients', { cache: 'no-store' });
+    recipients = preview.recipients || {};
+  } catch (error) {
+    showNotice('Cannot verify Project Manager email addresses: ' + error.message, 'error');
+    return;
+  } finally {
+    bulkUpdateMail.opening = false;
+    renderToolbar();
+  }
+  if (!canOperateAdminTools() || state.view !== 'overdue') return;
+  bulkUpdateMail.recipients = new Map(Object.entries(recipients));
   bulkUpdateMail.accepted.clear();
   bulkUpdateMail.requestKeys.clear();
   const tbody = $('#updateRequestsBody');
@@ -1458,7 +1477,9 @@ function openUpdateRequestsDialog() {
     const selectCell = document.createElement('td');
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
-    checkbox.checked = true;
+    const recipient = bulkUpdateMail.recipients.get(String(p.orderNumber));
+    checkbox.checked = Boolean(recipient?.email);
+    checkbox.disabled = !recipient?.email;
     checkbox.dataset.number = String(p.orderNumber);
     checkbox.setAttribute('aria-label', 'Select project ' + p.orderNumber);
     checkbox.addEventListener('change', updateMailSelectionUi);
@@ -1475,14 +1496,20 @@ function openUpdateRequestsDialog() {
       td.textContent = String(value ?? '');
       row.append(td);
     }
+    const recipientInfo = document.createElement('small');
+    recipientInfo.className = 'bulk-mail-recipient' + (recipient?.email ? '' : ' missing');
+    recipientInfo.textContent = recipient?.email || recipient?.error || 'No registered Project Manager email';
+    row.lastElementChild.append(recipientInfo);
     const result = document.createElement('span');
     result.className = 'bulk-mail-result';
     result.setAttribute('aria-live', 'polite');
     row.lastElementChild.append(result);
+    if (!recipient?.email) row.classList.add('bulk-mail-no-recipient');
     tbody.append(row);
   }
+  const sendable = projects.filter(p => bulkUpdateMail.recipients.get(String(p.orderNumber))?.email).length;
   $('#updateRequestsProgress').textContent = projects.length
-    ? 'Choose which projects should receive a request.'
+    ? sendable + ' of ' + projects.length + ' projects have a registered Project Manager email.'
     : 'No projects currently require an update.';
   updateMailSelectionUi();
   $('#updateRequestsDialog').showModal();
@@ -1496,8 +1523,9 @@ async function sendSelectedProjectUpdates() {
   if (!chosen.length) return;
   const prompt = 'Send ' + chosen.length + ' separate project update email'
     + (chosen.length === 1 ? '' : 's')
-    + '?\n\nFrom: system@helsinginhitsaus.fi\nTo (test): andrey@helsinginhitsaus.fi'
-    + '\n\nEach selected project will be emailed individually.';
+    + '?\n\nFrom: system@helsinginhitsaus.fi\nTo: the assigned Project Managers'
+    + '\n\nThe recipient email for each project is shown in the table.'
+    + '\nEach selected project will be emailed individually.';
   if (!confirm(prompt)) return;
   setBulkSending(true);
   let accepted = 0;
@@ -1516,12 +1544,12 @@ async function sendSelectedProjectUpdates() {
         const response = await request('/api/mail/project-update-request', {
           method: 'POST',
           headers: { 'X-Idempotency-Key': key },
-          body: { orderNumber: number }
+          body: { orderNumber: number, expectedRecipient: bulkUpdateMail.recipients.get(number)?.email }
         });
         if (!response.accepted) throw new Error('Microsoft 365 did not accept the request.');
         bulkUpdateMail.accepted.add(number);
         accepted++;
-        markMailResult(number, 'accepted', 'Accepted by Microsoft 365');
+        markMailResult(number, 'accepted', 'Accepted by Microsoft 365 for ' + response.to);
       } catch (error) {
         failed++;
         markMailResult(number, 'failed', 'Not confirmed: ' + error.message);
