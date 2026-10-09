@@ -544,3 +544,62 @@ tbody tr:hover {
 .workspace.is-fullscreen .toolbar-right .table-view-controls .fullscreen-table-btn {
   background-image: url("assets/fullscreen-collapse.png");
 }
+
+
+/* Order number is the only sortable project-table column. */
+.order-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 5px;
+  margin: -3px -5px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 800;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  white-space: nowrap;
+}
+.order-sort-button:hover, .order-sort-button:focus-visible {
+  color: var(--accent);
+  background: #ebe5df;
+}
+.order-sort-arrow { font-size: 14px; line-height: 1; }
+
+/* Presence is invisible until there is another active user. */
+.other-active-users { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.other-active-users.hidden { display: none; }
+.online-peer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  background: #f1e9e0;
+  color: #604733;
+  border: 1px solid #ddcebf;
+  padding: 6px 9px;
+  font-size: 11px;
+  line-height: 1.1;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.online-peer::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  background: #28856a;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+@media (max-width: 560px) {
+  .topbar-actions.has-online-peers { flex-wrap: nowrap; justify-content: flex-end; }
+  .topbar-actions.has-online-peers .other-active-users { flex: 1 1 auto; flex-wrap: nowrap; overflow-x: auto; }
+  .topbar-actions.has-online-peers .btn { width: auto; flex: 0 0 auto; }
+}
+/* Block browser pinch-to-page-zoom on mobile; JS handles two-finger table zoom. */
+@media (pointer: coarse) {
+  .workspace .table-wrap { touch-action: pan-x pan-y; overscroll-behavior: contain; }
+}
