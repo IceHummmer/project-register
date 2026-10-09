@@ -280,6 +280,7 @@ function clearSession({ backendReady = state.backendReady } = {}) {
   state.customers = [];
   state.audit = [];
   state.users = [];
+  userAccessDrafts.clear();
   state.selectedNumber = null;
   state.editableOnly = false;
   state.tableFullscreen = false;
@@ -766,6 +767,97 @@ function makeRoleChecklist(values = [], { includeAdmin = false, lockAdmin = fals
   return wrap;
 }
 
+// Keep edits in memory when filtering or moving between tabs. Never store PINs in
+// browser persistence; clear all drafts on logout or after a successful batch.
+const userAccessDrafts = new Map();
+let savingUserAccess = false;
+
+function sameUserRoles(a, b) {
+  const normalized = roles => [...new Set(roles || [])].sort().join('|');
+  return normalized(a) === normalized(b);
+}
+
+function setUserAccessDraft(user, microsoftAccount, roles, password) {
+  const previous = userAccessDrafts.get(user.username);
+  const expected = previous?.expected || {
+    microsoftAccount: user.microsoftAccount || '',
+    roles: normalizeRoles(user)
+  };
+  const account = String(microsoftAccount || '');
+  const pin = String(password || '');
+  if (account.trim().toLowerCase() === String(expected.microsoftAccount || '').trim().toLowerCase() &&
+      sameUserRoles(roles, expected.roles) && !pin) {
+    userAccessDrafts.delete(user.username);
+  } else {
+    userAccessDrafts.set(user.username, {
+      username: user.username,
+      microsoftAccount: account,
+      roles: [...roles],
+      password: pin,
+      expected
+    });
+  }
+  refreshUserAccessSaveButton();
+}
+
+function refreshUserAccessSaveButton() {
+  const button = $('#saveUserAccessBtn');
+  const status = $('#userAccessDraftCount');
+  if (!button || !status) return;
+  const total = userAccessDrafts.size;
+  button.disabled = savingUserAccess || total === 0;
+  button.textContent = savingUserAccess ? 'Saving…' : 'Save changes';
+  status.textContent = total
+    ? total + ' unsaved ' + (total === 1 ? 'user' : 'users')
+    : 'All changes saved';
+  status.classList.toggle('unsaved', total > 0);
+}
+
+async function saveUserAccessChanges() {
+  if (savingUserAccess || !state.user?.canManageUsers || !userAccessDrafts.size) return;
+  const updates = [...userAccessDrafts.values()].map(draft => ({
+    username: draft.username,
+    microsoftAccount: draft.microsoftAccount,
+    roles: [...draft.roles],
+    ...(draft.password ? { password: draft.password } : {}),
+    expected: {
+      microsoftAccount: draft.expected.microsoftAccount,
+      roles: [...draft.expected.roles]
+    }
+  }));
+  for (const update of updates) {
+    if (!update.roles.length) return showNotice('Select at least one role for ' + update.username + '.', 'error');
+    const account = update.microsoftAccount.trim();
+    if (account && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(account)) {
+      return showNotice('Check the Microsoft account for ' + update.username + '.', 'error');
+    }
+  }
+  savingUserAccess = true;
+  refreshUserAccessSaveButton();
+  try {
+    const result = await request('/api/users/batch', {
+      method: 'PUT',
+      headers: { 'X-Idempotency-Key': operationKey() },
+      body: { updates }
+    });
+    userAccessDrafts.clear();
+    if (result.currentUser) {
+      state.user = { ...state.user, ...result.currentUser };
+      updateAuthUi();
+    }
+    await Promise.all([loadUsers(), refreshLookups()]);
+    renderUsers();
+    showNotice(result.updatedCount + ' ' +
+      (result.updatedCount === 1 ? 'user updated.' : 'users updated.'));
+  } catch (error) {
+    // Preserve every unsaved field when a batch fails.
+    showNotice('Nothing was saved. ' + error.message, 'error');
+  } finally {
+    savingUserAccess = false;
+    refreshUserAccessSaveButton();
+  }
+}
+
 function renderUsers() {
   const content = $('#content');
   if (!state.user?.canManageUsers) {
@@ -819,6 +911,21 @@ function renderUsers() {
   });
   container.append(addCard);
 
+  const saveBar = document.createElement('div');
+  saveBar.className = 'user-access-save-bar';
+  const status = document.createElement('span');
+  status.id = 'userAccessDraftCount';
+  status.className = 'user-access-draft-count';
+  status.setAttribute('role', 'status');
+  const saveAll = document.createElement('button');
+  saveAll.id = 'saveUserAccessBtn';
+  saveAll.type = 'button';
+  saveAll.className = 'btn btn-primary';
+  saveAll.textContent = 'Save changes';
+  saveAll.addEventListener('click', saveUserAccessChanges);
+  saveBar.append(status, saveAll);
+  container.append(saveBar);
+
   const q = $('#searchInput').value.trim().toLowerCase();
   const users = state.users.filter(u =>
     !q ||
@@ -837,8 +944,9 @@ function renderUsers() {
   const body = document.createElement('tbody');
 
   for (const u of users) {
-    const userRoles = normalizeRoles(u);
-    const isMainAdmin = userRoles.includes('admin');
+    const draft = userAccessDrafts.get(u.username);
+    const userRoles = draft ? draft.roles : normalizeRoles(u);
+    const isMainAdmin = normalizeRoles(u).includes('admin');
     const tr = document.createElement('tr');
 
     const userTd = document.createElement('td');
@@ -851,7 +959,7 @@ function renderUsers() {
     account.type = 'email';
     account.className = 'password-reset';
     account.placeholder = 'name@helsinginhitsaus.fi';
-    account.value = u.microsoftAccount || '';
+    account.value = draft ? draft.microsoftAccount : (u.microsoftAccount || '');
     accountTd.append(account);
 
     if (u.microsoftLinked) {
@@ -875,6 +983,7 @@ function renderUsers() {
       pass.type = 'password';
       pass.className = 'password-reset';
       pass.placeholder = 'New emergency PIN';
+      pass.value = draft?.password || '';
       passwordTd.append(pass);
     } else {
       passwordTd.textContent = '—';
@@ -884,40 +993,13 @@ function renderUsers() {
     const actionsTd = document.createElement('td');
     actionsTd.className = 'user-actions';
 
-    const save = document.createElement('button');
-    save.className = 'btn';
-    save.type = 'button';
-    save.textContent = 'Save';
-    save.addEventListener('click', async () => {
-      const roles = accessControl.getRoles();
-      if (!roles.length) return showNotice('Select at least one role.', 'error');
-
-      const payload = {
-        microsoftAccount: account.value,
-        roles
-      };
-      if (pass?.value) payload.password = pass.value;
-
-      try {
-        const result = await request(`/api/users/${encodeURIComponent(u.username)}`, {
-          method: 'PUT',
-          body: payload
-        });
-
-        if (pass) pass.value = '';
-        if (u.username === state.user?.username && result.user) {
-          state.user = { ...state.user, ...result.user };
-          updateAuthUi();
-        }
-
-        await Promise.all([loadUsers(), refreshLookups()]);
-        renderUsers();
-        showNotice('User updated.');
-      } catch (error) {
-        showNotice(error.message, 'error');
-      }
-    });
-    actionsTd.append(save);
+    // Track in-memory drafts instead of saving each row independently.
+    const captureDraft = () => setUserAccessDraft(
+      u, account.value, accessControl.getRoles(), pass?.value || ''
+    );
+    account.addEventListener('input', captureDraft);
+    accessControl.addEventListener('change', captureDraft);
+    pass?.addEventListener('input', captureDraft);
 
     if (!isMainAdmin) {
       const del = document.createElement('button');
@@ -925,10 +1007,13 @@ function renderUsers() {
       del.type = 'button';
       del.textContent = 'Delete';
       del.addEventListener('click', async () => {
-        if (!confirm(`Delete user ${u.username}?`)) return;
+        const warning = userAccessDrafts.size
+          ? 'Unsaved changes will remain pending for other users.\\n\\n' : '';
+        if (!confirm(warning + `Delete user ${u.username}?`)) return;
 
         try {
           await request(`/api/users/${encodeURIComponent(u.username)}`, { method: 'DELETE' });
+          userAccessDrafts.delete(u.username);
           await Promise.all([loadUsers(), refreshLookups()]);
           renderUsers();
           showNotice('User deleted.');
@@ -947,6 +1032,7 @@ function renderUsers() {
   wrap.append(table);
   container.append(wrap);
   content.replaceChildren(container);
+  refreshUserAccessSaveButton();
 }
 
 function setTableZoom(value) {
