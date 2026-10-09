@@ -834,12 +834,16 @@ async function saveUserAccessChanges() {
   }
   savingUserAccess = true;
   refreshUserAccessSaveButton();
+  const enabledControls = [...document.querySelectorAll('.users-page input:not(:disabled), .users-page button:not(:disabled)')];
+  enabledControls.forEach(control => { control.disabled = true; });
+  let committed = false;
   try {
     const result = await request('/api/users/batch', {
       method: 'PUT',
       headers: { 'X-Idempotency-Key': operationKey() },
       body: { updates }
     });
+    committed = true;
     userAccessDrafts.clear();
     if (result.currentUser) {
       state.user = { ...state.user, ...result.currentUser };
@@ -851,8 +855,14 @@ async function saveUserAccessChanges() {
       (result.updatedCount === 1 ? 'user updated.' : 'users updated.'));
   } catch (error) {
     // Preserve every unsaved field when a batch fails.
-    showNotice('Nothing was saved. ' + error.message, 'error');
+    showNotice(
+      committed
+        ? 'Changes were saved, but the list could not be refreshed: ' + error.message
+        : 'Nothing was saved. ' + error.message,
+      'error'
+    );
   } finally {
+    enabledControls.forEach(control => { if (control.isConnected) control.disabled = false; });
     savingUserAccess = false;
     refreshUserAccessSaveButton();
   }
@@ -890,6 +900,7 @@ function renderUsers() {
   addCard.append(nameInput, microsoftInput, roleControl, addBtn);
   addCard.addEventListener('submit', async e => {
     e.preventDefault();
+    if (savingUserAccess) return;
     const roles = roleControl.getRoles();
     if (!roles.length) return showNotice('Select at least one role.', 'error');
 
@@ -1007,6 +1018,7 @@ function renderUsers() {
       del.type = 'button';
       del.textContent = 'Delete';
       del.addEventListener('click', async () => {
+        if (savingUserAccess) return;
         const warning = userAccessDrafts.size
           ? 'Unsaved changes will remain pending for other users.\\n\\n' : '';
         if (!confirm(warning + `Delete user ${u.username}?`)) return;
