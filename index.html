@@ -5,8 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>Project Register</title>
   <meta name="theme-color" content="#7a5a3a" />
+  <meta name="application-name" content="HH Project Register" />
+  <meta name="apple-mobile-web-app-title" content="HH Project Register" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/pwa/icon-192.png" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<link rel="stylesheet" href="styles.css?v=20261009-manager-mail-routing" />
+<link rel="stylesheet" href="styles.css?v=20261009-pwa-install" />
 </head>
 <body>
   <section id="loginLanding" class="login-landing">
@@ -44,6 +49,10 @@
         <h1>Project Register</h1>
       </div>
       <div class="topbar-actions">
+        <button id="installAppBtn" type="button" class="btn install-app-btn" title="Install Project Register as an app on this computer">
+          <span class="install-app-icon" aria-hidden="true">↧</span>
+          <span>Install app</span>
+        </button>
         <div id="otherActiveUsers" class="other-active-users hidden" aria-label="Other users currently online" aria-live="polite"></div>
         <button id="authBtn" class="btn btn-dark" type="button">Sign in</button>
       </div>
@@ -284,6 +293,18 @@
     </div>
   </dialog>
 
+  <dialog id="installAppDialog" class="modal modal-small" aria-labelledby="installAppTitle">
+    <div class="modal-card">
+      <div class="eyebrow">OPTIONAL DESKTOP APP</div>
+      <h3 id="installAppTitle">Install HH Project Register</h3>
+      <p id="installAppInstructions"></p>
+      <p class="install-app-note">Installation is optional. You can always use the same website in your browser or open it from your HTML shortcut. All information stays on the server and updates automatically.</p>
+      <div class="modal-actions">
+        <button id="closeInstallAppDialogBtn" type="button" class="btn btn-primary">Got it</button>
+      </div>
+    </div>
+  </dialog>
+
   <div id="busyOverlay" class="busy-overlay hidden" role="dialog" aria-modal="true" aria-live="assertive">
     <div class="busy-card">
       <div class="busy-spinner" aria-hidden="true"></div>
@@ -293,5 +314,6 @@
   </div>
 
   <script type="module" src="app.js?v=20261009-users-bulk-save"></script>
+  <script type="module" src="/pwa/install.js?v=20261009-pwa-v1"></script>
 </body>
 </html>
