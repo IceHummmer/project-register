@@ -1289,14 +1289,90 @@ function setProjectDialogMode({ project = null, readOnly = false } = {}) {
   if (closeBtn) closeBtn.textContent = readOnly ? 'Close' : 'Cancel';
 }
 
-function openProjectEditor(project = null) {
+// Edit leases protect one project at a time. Other projects stay available.
+let projectEditLease = null;
+let projectEditOpening = false;
+let projectEditRefresh = null;
+let projectEditRelease = Promise.resolve();
+
+function stopProjectEditRefresh() {
+  if (projectEditRefresh) clearInterval(projectEditRefresh);
+  projectEditRefresh = null;
+}
+function releaseProjectEditorLease() {
+  stopProjectEditRefresh();
+  const lease = projectEditLease;
+  projectEditLease = null;
+  if (!lease) return;
+  projectEditRelease = request(`/api/projects/${encodeURIComponent(lease.number)}/edit-lock`, {
+    method: 'DELETE', body: { token: lease.token }, keepalive: true
+  }).catch(() => {});
+}
+function projectEditorLockLost(reason) {
+  stopProjectEditRefresh();
+  projectEditLease = null;
+  const notice = $('#projectLockNotice');
+  notice.textContent = 'Editing is no longer available. ' + reason +
+    ' Your unsaved values remain visible; close and reopen the project before editing again.';
+  notice.classList.remove('hidden');
+  const project = state.projects.find(p => p.orderNumber === state.editingNumber);
+  setProjectDialogMode({ project: project || { orderNumber: state.editingNumber }, readOnly: true });
+  $('#projectValidation').textContent = reason;
+  $('#projectValidation').classList.remove('hidden');
+}
+function startProjectEditRefresh(lease) {
+  stopProjectEditRefresh();
+  projectEditRefresh = setInterval(async () => {
+    if (projectEditLease !== lease) return;
+    try {
+      await request(`/api/projects/${encodeURIComponent(lease.number)}/edit-lock`, {
+        method: 'PUT', body: { token: lease.token }
+      });
+    } catch (error) {
+      if (projectEditLease === lease) projectEditorLockLost(error.message);
+    }
+  }, 45000);
+}
+
+async function openProjectEditor(project = null) {
   if (!state.user) return $('#authDialog').showModal();
 
   if (!project && !canEditProjects()) {
     return showNotice('Your access level is read-only.', 'error');
   }
 
-  const readOnly = Boolean(project && !project.canEdit);
+  if (projectEditOpening) return;
+  projectEditOpening = true;
+  await projectEditRelease;
+  let readOnly = Boolean(project && !project.canEdit);
+  let notice = '';
+  try {
+    if (project && !readOnly) {
+      const result = await request(`/api/projects/${encodeURIComponent(project.orderNumber)}/edit-lock`, {
+        method: 'POST'
+      });
+      project = result.project || project;
+      if (result.acquired) {
+        projectEditLease = {
+          number: String(project.orderNumber), token: result.token, revision: result.revision
+        };
+        startProjectEditRefresh(projectEditLease);
+      } else {
+        readOnly = true;
+        notice = 'This project is being edited by ' +
+          (result.lockedBy || 'another user') + '. It is available in read-only mode until they close the editor.';
+      }
+    }
+  } catch (error) {
+    readOnly = true;
+    notice = 'Editing is unavailable: ' + error.message;
+    if (project) {
+      try {
+        const response = await request(`/api/projects/${encodeURIComponent(project.orderNumber)}`);
+        project = response.project || project;
+      } catch {}
+    }
+  } finally { projectEditOpening = false; }
   state.editingNumber = project?.orderNumber || null;
 
   setText(
@@ -1311,6 +1387,9 @@ function openProjectEditor(project = null) {
   );
 
   $('#projectValidation').classList.add('hidden');
+  const lockNotice = $('#projectLockNotice');
+  lockNotice.textContent = notice;
+  lockNotice.classList.toggle('hidden', !notice);
   setFormProject(project || {
     status: 'In plan',
     projectManager: state.user?.access === 'edit_own' ? state.user.username : ''
@@ -1335,6 +1414,15 @@ async function saveProject() {
   if (!validateProjectForm()) return;
   const payload = formPayload($('#projectForm'));
   const editing = Boolean(state.editingNumber);
+  if (editing) {
+    if (!projectEditLease || projectEditLease.number !== String(state.editingNumber)) {
+      validation.textContent = 'This project is not locked for editing. Close and reopen it.';
+      validation.classList.remove('hidden');
+      return;
+    }
+    payload._editLockToken = projectEditLease.token;
+    payload._baseRevision = projectEditLease.revision;
+  }
   const idempotencyKey = operationKey();
 
   if (!beginBusy(
@@ -1386,7 +1474,9 @@ async function deleteProject() {
       orderNumber: p.orderNumber,
       projectName: p.projectName,
       challengeId: r.challenge.id,
-      idempotencyKey: operationKey()
+      idempotencyKey: operationKey(),
+      editLockToken: projectEditLease?.token,
+      baseRevision: projectEditLease?.revision
     };
 
     setText($('#deleteProjectName'), `${p.orderNumber} — ${p.projectName}`);
@@ -1438,6 +1528,8 @@ async function confirmDeleteProject(event) {
       headers: { 'X-Idempotency-Key': pendingDeleteChallenge.idempotencyKey },
       body: {
         challengeId: pendingDeleteChallenge.challengeId,
+        _editLockToken: pendingDeleteChallenge.editLockToken,
+        _baseRevision: pendingDeleteChallenge.baseRevision,
         confirmationCode
       }
     });
@@ -2089,10 +2181,12 @@ $('#authForm').addEventListener('submit', async e => {
   }
 });
 $('#logoutBtn').addEventListener('click',async()=>{
+  releaseProjectEditorLease();
   try{await request('/api/auth/logout',{method:'POST'});}catch{}
   $('#authDialog').close();clearSession({ backendReady: true });showNotice('Signed out.');
 });
 $('#projectForm').addEventListener('submit',e=>{e.preventDefault();saveProject();});
+$('#projectDialog').addEventListener('close', releaseProjectEditorLease);
 $('#deleteProjectBtn').addEventListener('click',deleteProject);
 $('#deleteConfirmForm').addEventListener('submit', confirmDeleteProject);
 $('#deleteCodeInput').addEventListener('input', e => {

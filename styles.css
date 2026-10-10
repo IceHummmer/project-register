@@ -693,3 +693,15 @@ tbody tr:hover {
 @media (max-width: 560px) {
   .topbar-actions .install-app-btn { width: auto; min-width: auto; }
 }
+
+/* Project editor lease: show who is editing and why the form is read-only. */
+.project-lock-notice {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid #e3c9a4;
+  border-radius: 9px;
+  background: #fff7e9;
+  color: #6b4820;
+  line-height: 1.5;
+  font-size: 13px;
+}

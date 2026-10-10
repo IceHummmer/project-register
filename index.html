@@ -11,7 +11,7 @@
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="apple-touch-icon" href="/pwa/icon-192.png" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<link rel="stylesheet" href="styles.css?v=20261009-pwa-install" />
+<link rel="stylesheet" href="styles.css?v=20261010-edit-lock" />
 </head>
 <body>
   <section id="loginLanding" class="login-landing">
@@ -148,6 +148,7 @@
         <div><div class="eyebrow" id="projectModeLabel">PROJECT</div><h3 id="projectDialogTitle">Add project</h3></div>
         <button class="icon-btn" type="button" data-close-dialog aria-label="Close">×</button>
       </div>
+      <div id="projectLockNotice" class="project-lock-notice hidden" role="status" aria-live="polite"></div>
       <div class="form-grid">
         <label class="field"><span>Order number</span><input name="orderNumber" readonly placeholder="Generated automatically" /></label>
         <label class="field span-2"><span>Project name *</span><input name="projectName" required /></label>
@@ -313,7 +314,7 @@
     </div>
   </div>
 
-  <script type="module" src="app.js?v=20261009-users-bulk-save"></script>
+  <script type="module" src="app.js?v=20261010-edit-lock"></script>
   <script type="module" src="/pwa/install.js?v=20261009-pwa-v1"></script>
 </body>
 </html>
