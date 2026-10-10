@@ -1293,6 +1293,7 @@ function setProjectDialogMode({ project = null, readOnly = false } = {}) {
 let projectEditLease = null;
 let projectEditOpening = false;
 let projectEditRefresh = null;
+let projectEditRelease = Promise.resolve();
 
 function stopProjectEditRefresh() {
   if (projectEditRefresh) clearInterval(projectEditRefresh);
@@ -1303,7 +1304,7 @@ function releaseProjectEditorLease() {
   const lease = projectEditLease;
   projectEditLease = null;
   if (!lease) return;
-  void request(`/api/projects/${encodeURIComponent(lease.number)}/edit-lock`, {
+  projectEditRelease = request(`/api/projects/${encodeURIComponent(lease.number)}/edit-lock`, {
     method: 'DELETE', body: { token: lease.token }, keepalive: true
   }).catch(() => {});
 }
@@ -1342,6 +1343,7 @@ async function openProjectEditor(project = null) {
 
   if (projectEditOpening) return;
   projectEditOpening = true;
+  await projectEditRelease;
   let readOnly = Boolean(project && !project.canEdit);
   let notice = '';
   try {
