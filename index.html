@@ -11,7 +11,7 @@
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="apple-touch-icon" href="/pwa/icon-192.png" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<link rel="stylesheet" href="styles.css?v=20261013-change-history" />
+<link rel="stylesheet" href="styles.css?v=20261013-resizable-columns-v1" />
 </head>
 <body>
   <section id="loginLanding" class="login-landing">
@@ -99,6 +99,7 @@
               <input id="searchInput" type="search" placeholder="Number, project, customer…" autocomplete="off" />
             </label>
             <div class="table-view-controls">
+              <button id="resetColumnWidthsBtn" class="zoom-btn reset-widths-btn" type="button" title="Reset column widths in this table" aria-label="Reset column widths">↔</button>
               <div class="table-zoom-controls" aria-label="Table zoom">
                 <button id="zoomOutBtn" class="zoom-btn" type="button" aria-label="Zoom out" title="Zoom out">−</button>
                 <button id="zoomLevelBtn" class="zoom-label" type="button" title="Reset table zoom to 100%">100%</button>
@@ -314,7 +315,7 @@
     </div>
   </div>
 
-  <script type="module" src="app.js?v=20261013-change-history"></script>
+  <script type="module" src="app.js?v=20261013-resizable-columns-v1"></script>
   <script type="module" src="/pwa/install.js?v=20261009-pwa-v1"></script>
 </body>
 </html>
