@@ -562,6 +562,174 @@ function renderMetrics() {
   }
 }
 
+// Excel-style column resizing for all register workspaces. Widths stay local
+// to each device/browser, never enter project data, and are separate by view.
+const COLUMN_WIDTH_STORAGE_KEY = 'hh-project-register-column-widths-v1';
+const MIN_COLUMN_WIDTH = 66;
+const MAX_COLUMN_WIDTH = 1500;
+
+function columnLayoutKey(view = state.view) {
+  if (view === 'overdue') return 'overdue';
+  if (['all', 'plan', 'progress', 'completed', 'refusal'].includes(view)) return 'projects';
+  if (view === 'customers') return canEditCustomers() ? 'customers-edit' : 'customers-view';
+  if (view === 'audit') return 'history';
+  if (view === 'users') return 'users';
+  return null;
+}
+
+function readColumnLayouts() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(COLUMN_WIDTH_STORAGE_KEY) || '{}');
+    return stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
+  } catch {
+    return {};
+  }
+}
+
+function savedColumnWidths(key, count) {
+  const value = readColumnLayouts()[key];
+  return Array.isArray(value) && value.length === count &&
+    value.every(width => Number.isFinite(width) &&
+      width >= MIN_COLUMN_WIDTH && width <= MAX_COLUMN_WIDTH)
+    ? value.slice() : null;
+}
+
+function storeColumnWidths(key, widths) {
+  try {
+    const layouts = readColumnLayouts();
+    layouts[key] = widths.map(width => Math.round(width));
+    localStorage.setItem(COLUMN_WIDTH_STORAGE_KEY, JSON.stringify(layouts));
+  } catch (error) {
+    console.warn('Column widths could not be saved in this browser:', error.message);
+  }
+}
+
+function resetColumnWidths() {
+  const key = columnLayoutKey();
+  if (!key) return;
+  try {
+    const layouts = readColumnLayouts();
+    delete layouts[key];
+    localStorage.setItem(COLUMN_WIDTH_STORAGE_KEY, JSON.stringify(layouts));
+  } catch (error) {
+    console.warn('Could not reset stored column widths:', error.message);
+  }
+  render();
+}
+
+// Call after the table is attached to the document so its original column
+// widths can be measured before applying user-defined widths.
+function makeColumnsResizable(table, key = columnLayoutKey()) {
+  if (!key || !table) return;
+  const headers = Array.from(table.tHead?.rows[0]?.cells || []);
+  if (!headers.length || table.classList.contains('resizable-table')) return;
+  const scale = table.closest('.workspace') ? state.tableZoom / 100 : 1;
+  const naturalWidths = headers.map(th =>
+    Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH,
+      Math.round((th.getBoundingClientRect().width || th.offsetWidth || 100) / scale)
+    ))
+  );
+  const widths = savedColumnWidths(key, headers.length) || naturalWidths.slice();
+
+  const cols = document.createElement('colgroup');
+  const elements = headers.map(() => {
+    const col = document.createElement('col');
+    cols.append(col);
+    return col;
+  });
+  table.prepend(cols);
+  table.classList.add('resizable-table');
+
+  function applyWidths() {
+    widths.forEach((width, index) => {
+      elements[index].style.width = `calc(${width}px * var(--table-scale, 1))`;
+    });
+    const total = widths.reduce((sum, width) => sum + width, 0);
+    const px = `calc(${total}px * var(--table-scale, 1))`;
+    table.style.width = px;
+    table.style.minWidth = px;
+  }
+  const adjust = (index, value) => {
+    widths[index] = Math.max(MIN_COLUMN_WIDTH,
+      Math.min(MAX_COLUMN_WIDTH, Math.round(value)));
+    applyWidths();
+  };
+  applyWidths();
+
+  headers.forEach((th, index) => {
+    th.classList.add('resizable-column-heading');
+    const handle = document.createElement('span');
+    handle.className = 'column-resize-handle';
+    handle.setAttribute('role', 'separator');
+    handle.setAttribute('aria-orientation', 'vertical');
+    handle.setAttribute('aria-label', `Resize ${th.textContent.trim()} column`);
+    handle.setAttribute('aria-valuemin', String(MIN_COLUMN_WIDTH));
+    handle.setAttribute('aria-valuemax', String(MAX_COLUMN_WIDTH));
+    handle.setAttribute('aria-valuenow', String(widths[index]));
+    handle.setAttribute('tabindex', '0');
+    handle.title = 'Drag to resize · Double-click to reset · Arrow keys to adjust';
+
+    const apply = value => {
+      adjust(index, value);
+      handle.setAttribute('aria-valuenow', String(widths[index]));
+    };
+
+    handle.addEventListener('pointerdown', event => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const pointerId = event.pointerId;
+      const initialX = event.clientX;
+      const initialWidth = widths[index];
+      let changed = false;
+      document.body.classList.add('column-resize-dragging');
+      handle.classList.add('is-resizing');
+
+      const onMove = moveEvent => {
+        if (moveEvent.pointerId !== pointerId) return;
+        moveEvent.preventDefault();
+        const zoom = table.closest('.workspace') ? state.tableZoom / 100 : 1;
+        const next = initialWidth + (moveEvent.clientX - initialX) / zoom;
+        apply(next);
+        if (widths[index] !== initialWidth) changed = true;
+      };
+      const onEnd = endEvent => {
+        if (endEvent.pointerId !== pointerId) return;
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onEnd);
+        document.removeEventListener('pointercancel', onEnd);
+        document.body.classList.remove('column-resize-dragging');
+        handle.classList.remove('is-resizing');
+        if (changed) storeColumnWidths(key, widths);
+      };
+      document.addEventListener('pointermove', onMove, { passive: false });
+      document.addEventListener('pointerup', onEnd);
+      document.addEventListener('pointercancel', onEnd);
+    });
+    handle.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    handle.addEventListener('dblclick', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      apply(naturalWidths[index]);
+      storeColumnWidths(key, widths);
+    });
+    handle.addEventListener('keydown', event => {
+      const step = event.shiftKey ? 25 : 10;
+      if (!['ArrowLeft', 'ArrowRight', 'Home'].includes(event.key)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const next = event.key === 'Home' ? naturalWidths[index]
+        : widths[index] + (event.key === 'ArrowLeft' ? -step : step);
+      apply(next);
+      storeColumnWidths(key, widths);
+    });
+    th.append(handle);
+  });
+}
+
 function renderProjectTable() {
   const content = $('#content');
   const projects = filteredProjects();
@@ -642,6 +810,7 @@ function renderProjectTable() {
     tbody.append(tr);
   }
   table.append(tbody); wrap.append(table); content.replaceChildren(wrap);
+  if (projects.length) makeColumnsResizable(table);
   if (!projects.length) {
     const message = state.editableOnly
       ? '<div class="empty-state"><div><h3>No editable projects</h3><p>Turn off Editable only or change the current view.</p></div></div>'
@@ -703,6 +872,7 @@ function renderCustomers() {
   table.append(body);
   wrap.append(table);
   content.replaceChildren(wrap);
+  makeColumnsResizable(table);
 }
 
 // The API supplies human-readable, allowlisted field changes. This view never
@@ -835,6 +1005,7 @@ function renderAudit() {
     container.append(footer);
   }
   content.replaceChildren(container);
+  makeColumnsResizable(table);
 }
 
 function makeRoleChecklist(values = [], { includeAdmin = false, lockAdmin = false } = {}) {
@@ -1151,6 +1322,7 @@ function renderUsers() {
   wrap.append(table);
   container.append(wrap);
   content.replaceChildren(container);
+  makeColumnsResizable(table);
   refreshUserAccessSaveButton();
 }
 
@@ -1681,6 +1853,7 @@ function openCustomers(editItem = null) {
   const f = $('#customerForm'); f.reset(); f.elements.id.value = '';
   if (editItem) Object.entries(editItem).forEach(([k,v]) => { if (f.elements[k]) f.elements[k].value = v ?? ''; });
   $('#customerDialog').showModal();
+  makeColumnsResizable($('#customerDialog .table-wrap table'), 'customer-management');
 }
 
 function renderCustomerDialogRows() {
@@ -1824,6 +1997,7 @@ async function openUpdateRequestsDialog() {
     : 'No projects currently require an update.';
   updateMailSelectionUi();
   $('#updateRequestsDialog').showModal();
+  makeColumnsResizable($('#updateRequestsDialog .bulk-mail-table'), 'update-requests');
 }
 
 async function sendSelectedProjectUpdates() {
@@ -2083,10 +2257,11 @@ $('#zoomOutBtn')?.addEventListener('click', () => setTableZoom(state.tableZoom -
 $('#zoomInBtn')?.addEventListener('click', () => setTableZoom(state.tableZoom + 10));
 $('#zoomLevelBtn')?.addEventListener('click', () => setTableZoom(100));
 $('#fullscreenTableBtn')?.addEventListener('click', () => { state.tableFullscreen = !state.tableFullscreen; updateTableDisplay(); });
+$('#resetColumnWidthsBtn')?.addEventListener('click', resetColumnWidths);
 
 // Desktop: Ctrl + mouse wheel changes table zoom, without scaling the page.
 $('.workspace')?.addEventListener('wheel', event => {
-  if (!event.ctrlKey || !state.user || !['all','plan','progress','completed','refusal','overdue'].includes(state.view)) return;
+  if (!event.ctrlKey || !state.user || !['all','plan','progress','completed','refusal','overdue','audit','customers','users'].includes(state.view)) return;
   if (!event.deltaY) return;
   event.preventDefault();
   setTableZoom(state.tableZoom + (event.deltaY < 0 ? 10 : -10));

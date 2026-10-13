@@ -38,3 +38,13 @@ No npm install or build step is required.
 The browser never contains a built-in copy of the Excel data. It requests data after authorization from `project-register-be`. The private backend is responsible for validation and permissions; client-side controls are convenience only and are not a security boundary.
 
 See [`docs/EXCEL_ANALYSIS.md`](docs/EXCEL_ANALYSIS.md) for the workbook-to-web mapping.
+
+## Resizable table columns
+
+All workspace tables support Excel-style column resizing by dragging the right edge of a column header. Supported layouts: All Projects / Plan / Progress / Completed / Refusal (shared widths), Updates Required, Customers, Change History and Users & Access. Customer management and Request update dialog tables can also be resized.
+
+- Drag a column-header separator to change its width.
+- Double-click a separator to reset just that column; keyboard focus on a separator and press Left/Right arrows (Shift = 25-pixel steps; Home = reset).
+- Use the **↔ Reset column widths** toolbar control to restore all widths in the current workspace.
+- Width preferences are stored only in this device/browser's local storage, isolated by table layout. They are not part of any project and are not synchronized to the backend.
+- Table zoom works with toolbar **− / 100% / +** and **Ctrl + mouse wheel** in all workspace views, including Change History. Existing fullscreen/pinch controls remain available.
