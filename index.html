@@ -11,7 +11,7 @@
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="apple-touch-icon" href="/pwa/icon-192.png" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<link rel="stylesheet" href="styles.css?v=20261013-grouped-history-v1" />
+<link rel="stylesheet" href="styles.css?v=20261013-en-ru-v1" />
 </head>
 <body>
   <section id="loginLanding" class="login-landing">
@@ -54,6 +54,13 @@
           <span>Install app</span>
         </button>
         <div id="otherActiveUsers" class="other-active-users hidden" aria-label="Other users currently online" aria-live="polite"></div>
+        <label class="language-switch" for="languageSelect">
+          <span id="languageSelectLabel">Language</span>
+          <select id="languageSelect" aria-label="Interface language">
+            <option value="en">EN</option>
+            <option value="ru">RU</option>
+          </select>
+        </label>
         <button id="authBtn" class="btn btn-dark" type="button">Sign in</button>
       </div>
     </header>
@@ -356,7 +363,7 @@
     </div>
   </div>
 
-  <script type="module" src="app.js?v=20261013-grouped-history-v1"></script>
+  <script type="module" src="app.js?v=20261013-en-ru-v1"></script>
   <script type="module" src="/pwa/install.js?v=20261009-pwa-v1"></script>
 </body>
 </html>
