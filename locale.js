@@ -5,6 +5,10 @@ let language = 'en';
 try { language = localStorage.getItem(STORAGE_KEY) === 'ru' ? 'ru' : 'en'; } catch {}
 
 const RU = Object.freeze({
+  'Sign out?':'Выйти из учётной записи?',
+  'Do you want to sign out of Project Register?':'Вы хотите выйти из Реестра проектов?',
+  'Account options':'Настройки учётной записи',
+  'Administrator transfer unavailable:':'Не удалось перейти под администратором:',
   'HELSINGIN HITSAUS · PROJECT CONTROL':'HELSINGIN HITSAUS · УПРАВЛЕНИЕ ПРОЕКТАМИ',
   'HELSINGIN HITSAUS':'HELSINGIN HITSAUS',
   'Manage projects, customers, project status and documents in one workspace.':'Управление проектами, заказчиками, статусами и документами в единой системе.',
