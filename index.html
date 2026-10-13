@@ -11,15 +11,20 @@
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="apple-touch-icon" href="/pwa/icon-192.png" />
   <link rel="icon" type="image/svg+xml" href="/hh-logo.svg" />
+  <script>if(new URLSearchParams(location.search).has('auto_sso') || new URLSearchParams(location.search).has('auth_code'))document.documentElement.dataset.moduleSso='pending';</script>
 <link rel="stylesheet" href="styles.css?v=20261013-en-ru-v1" />
 </head>
 <body>
   <section id="loginLanding" class="login-landing">
     <div class="login-landing-card">
-      <img class="hh-logo login-hh-logo" src="/hh-logo.svg" alt="Helsingin Hitsaus" />
-      <div class="eyebrow">PROJECT CONTROL</div>
-      <h1>Project Register</h1>
-      <p>Sign in with your Helsingin Hitsaus Microsoft account to continue.</p>
+      <div class="hh-login-topline">
+        <div class="eyebrow">HELSINGIN HITSAUS · PROJECT CONTROL</div>
+        <label class="hh-login-language" for="loginLanguageSelect"><span>Language</span>
+          <select id="loginLanguageSelect" aria-label="Interface language"><option value="en">EN</option><option value="ru">RU</option></select>
+        </label>
+      </div>
+      <div class="hh-login-brand"><img class="hh-logo login-hh-logo" src="/hh-logo.svg" alt="Helsingin Hitsaus" /><h1>Project Register</h1></div>
+      <p>Manage projects, customers, project status and documents in one workspace.</p>
 
       <div id="landingStatus" class="login-landing-status">Connecting securely…</div>
       <div id="projectModuleDenied" class="module-access-denied hidden" role="alert">
@@ -33,26 +38,35 @@
         <span id="landingMicrosoftText">Preparing sign in…</span>
       </button>
 
-      <details class="login-emergency">
-        <summary>Emergency administrator access</summary>
+      <button id="projectAdminToggle" class="btn hh-admin-toggle" type="button" aria-expanded="false" aria-controls="projectAdminForm">Administrator login</button>
+      <div id="projectAdminForm" class="hh-admin-form hidden">
+        <div class="muted">Emergency administrator access</div>
         <form id="landingEmergencyForm">
           <label class="field">
             <span>Administrator password</span>
             <input id="landingPinInput" type="password" autocomplete="current-password" />
           </label>
-          <button id="landingEmergencyBtn" class="btn" type="submit" disabled>Emergency log in</button>
+          <button id="landingEmergencyBtn" class="btn btn-primary" type="submit" disabled>Emergency log in</button>
         </form>
-      </details>
+      </div>
 
       <div class="login-brand">Helsingin Hitsaus</div>
     </div>
   </section>
 
+  <div id="moduleLoading" class="hh-module-loading" role="status" aria-live="polite">
+    <div class="hh-module-loading-card">
+      <img class="hh-logo" src="/hh-logo.svg" alt="Helsingin Hitsaus" />
+      <div class="hh-module-loading-title">Connecting to Project Register…</div>
+      <div class="hh-module-loading-spinner" aria-hidden="true"></div>
+      <p>Checking Microsoft 365 access and loading data.</p>
+    </div>
+  </div>
   <div id="appShell" class="app-shell hidden">
     <header class="topbar">
-      <div class="project-brand"><img class="hh-logo project-hh-logo" src="/hh-logo.svg" alt="Helsingin Hitsaus" /><div><div class="eyebrow">PROJECT CONTROL</div><h1>Project Register</h1></div></div>
+      <div class="project-brand"><img class="hh-logo project-hh-logo" src="/hh-logo.svg" alt="Helsingin Hitsaus" /><div><div class="eyebrow">HELSINGIN HITSAUS</div><h1>Project Register</h1></div></div>
       <div class="topbar-actions">
-        <label class="module-switch" for="projectModuleSelect"><span id="projectModuleLabel">Module</span><select id="projectModuleSelect" aria-label="Module"><option value="projects">Project Register</option><option value="warehouse">Warehouse Register</option></select></label>
+        <button id="projectModuleButton" class="btn hh-module-button" type="button">Warehouse Register <span aria-hidden="true">→</span></button>
         <button id="installAppBtn" type="button" class="btn install-app-btn" title="Install Project Register as an app on this computer">
           <span class="install-app-icon" aria-hidden="true">↧</span>
           <span>Install app</span>
@@ -65,6 +79,7 @@
             <option value="ru">RU</option>
           </select>
         </label>
+        <span id="projectIdentity" class="hh-identity hidden"></span>
         <button id="authBtn" class="btn btn-dark" type="button">Sign in</button>
       </div>
     </header>
