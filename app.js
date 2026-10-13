@@ -1047,6 +1047,45 @@ function formatSystemTime(raw) {
     : String(raw || '—');
 }
 
+function localizedSystemSubject(item) {
+  const subject = String(item?.subject || '');
+  if (getLanguage() !== 'ru') return subject;
+  const names = [
+    [/^Scheduled reminder accepted — Project (.*)$/i, 'Плановое напоминание принято — проект '],
+    [/^Reminder could not be sent: Project (.*)$/i, 'Не удалось отправить напоминание — проект '],
+    [/^Reminder delivery failed: Project (.*)$/i, 'Ошибка отправки напоминания — проект '],
+    [/^Automatic reminders: (.*)$/i, 'Автоматические напоминания: '],
+    [/^Cannot send project update: (.*)$/i, 'Невозможно отправить запрос обновления: '],
+    [/^Project folder synchronization unavailable: (.*)$/i, 'Синхронизация папки недоступна: '],
+    [/^Test notification — (.*)$/i, 'Тестовое уведомление — ']
+  ];
+  for (const [pattern, prefix] of names) {
+    const match = subject.match(pattern);
+    if (match) return prefix + match[1];
+  }
+  return t(subject);
+}
+
+function localizedSystemDetails(details) {
+  const raw = String(details || '');
+  if (getLanguage() !== 'ru') return raw;
+  const prefixes = {
+    'Scheduled run':'Плановый запуск', 'Project':'Проект',
+    'Assigned manager':'Руководитель проекта', 'Recipient':'Получатель',
+    'Sender':'Отправитель', 'Email subject':'Тема письма',
+    'Status':'Статус', 'Error':'Ошибка', 'Reason':'Причина',
+    'Endpoint':'Метод API', 'Microsoft Graph accepted':'Принято Microsoft Graph',
+    'Projects requiring updates':'Проектов, требующих обновления',
+    'Failed':'Ошибок'
+  };
+  return raw.split('\n').map(line => {
+    const idx = line.indexOf(': ');
+    if (idx < 0) return t(line);
+    const key = line.slice(0, idx);
+    return prefixes[key] ? prefixes[key] + line.slice(idx) : t(line);
+  }).join('\n');
+}
+
 function systemMessageRow(item) {
   const tr = document.createElement('tr');
   tr.className = 'system-inbox-row' + (!item.readAt ? ' system-unread' : '');
@@ -1054,10 +1093,10 @@ function systemMessageRow(item) {
   tr.setAttribute('role', 'button');
   tr.setAttribute('aria-label', 'Open system message: ' + item.subject);
   const values = [
-    !item.readAt ? '● New' : 'Read',
+    t(!item.readAt ? '● New' : 'Read'),
     formatSystemTime(item.at),
-    item.type || 'SYSTEM',
-    item.subject || '',
+    t(item.type || 'SYSTEM'),
+    localizedSystemSubject(item),
     item.project || '—'
   ];
   for (let i = 0; i < values.length; i++) {
@@ -1092,11 +1131,11 @@ function renderSystemMessages() {
   const toolbar = document.createElement('div');
   toolbar.className = 'system-inbox-toolbar';
   const count = document.createElement('span');
-  count.textContent = state.systemUnreadCount + ' unread · ' + state.systemMessages.length + ' messages';
+  count.textContent = getLanguage() === 'ru' ? `${state.systemUnreadCount} непрочитанных · ${state.systemMessages.length} сообщений` : state.systemUnreadCount + ' unread · ' + state.systemMessages.length + ' messages';
   const test = document.createElement('button');
   test.className = 'btn';
   test.type = 'button';
-  test.textContent = 'Send test notification';
+  test.textContent = t('Send test notification');
   test.addEventListener('click', async () => {
     test.disabled = true;
     try {
@@ -1117,7 +1156,7 @@ function renderSystemMessages() {
   const headings = document.createElement('tr');
   ['Status', 'Date / time', 'Type', 'Message', 'Project'].forEach(label => {
     const th = document.createElement('th');
-    th.textContent = label;
+    th.textContent = t(label);
     headings.append(th);
   });
   head.append(headings); table.append(head);
@@ -1128,7 +1167,7 @@ function renderSystemMessages() {
   if (!rows.length) {
     const empty = document.createElement('div');
     empty.className = 'change-history-empty';
-    empty.textContent = q ? 'No matching system messages.' : 'No system messages yet.';
+    empty.textContent = t(q ? 'No matching system messages.' : 'No system messages yet.');
     container.append(empty);
   }
   content.replaceChildren(container);
@@ -1137,11 +1176,11 @@ function renderSystemMessages() {
 
 async function openSystemMessage(item) {
   const dialog = $('#systemMessageDialog');
-  $('#systemMessageSubject').textContent = item.subject || 'System message';
+  $('#systemMessageSubject').textContent = localizedSystemSubject(item) || t('System message');
   $('#systemMessageMetadata').textContent =
-    formatSystemTime(item.at) + ' · ' + (item.category || 'SYSTEM') +
-    ' · ' + (item.type || 'ERROR') + (item.project ? ' · Project ' + item.project : '');
-  $('#systemMessageDetails').textContent = item.details || 'No additional details.';
+    formatSystemTime(item.at) + ' · ' + t(item.category || 'SYSTEM') +
+    ' · ' + t(item.type || 'ERROR') + (item.project ? ' · ' + t('Project') + ' ' + item.project : '');
+  $('#systemMessageDetails').textContent = localizedSystemDetails(item.details) || t('No additional details.');
   dialog.showModal();
   if (item.readAt) return;
   try {
