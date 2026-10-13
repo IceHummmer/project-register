@@ -11,7 +11,7 @@
   <link rel="manifest" href="/manifest.webmanifest?v=hh-icon-2" />
   <link rel="apple-touch-icon" href="/pwa/hh-icon-192.png" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=hh-icon-2" />
-  <script>if(new URLSearchParams(location.search).has('auto_sso') || new URLSearchParams(location.search).has('auth_code'))document.documentElement.dataset.moduleSso='pending';</script>
+  <script>if(new URLSearchParams(location.search).has('auto_sso') || new URLSearchParams(location.search).has('auth_code')||new URLSearchParams(location.hash.slice(1)).has('hh_admin_transfer'))document.documentElement.dataset.moduleSso='pending';</script>
 <link rel="stylesheet" href="styles.css?v=20261013-en-ru-v1" />
 </head>
 <body>
@@ -194,13 +194,13 @@
   <dialog id="projectSignOutDialog" class="modal modal-small" aria-labelledby="projectSignOutTitle">
     <div class="modal-card hh-signout-card">
       <div class="modal-header">
-        <h3 id="projectSignOutTitle">Sign out?</h3>
+        <h3 id="projectSignOutTitle" data-i18n="Sign out?">Sign out?</h3>
         <button class="icon-btn" type="button" id="projectSignOutClose" aria-label="Close">×</button>
       </div>
-      <p id="projectSignOutDescription">Do you want to sign out of Project Register?</p>
+      <p id="projectSignOutDescription" data-i18n="Do you want to sign out of Project Register?">Do you want to sign out of Project Register?</p>
       <div class="modal-actions">
-        <button class="btn" type="button" id="projectSignOutCancel">Cancel</button>
-        <button class="btn btn-danger" type="button" id="projectSignOutConfirm">Sign out</button>
+        <button class="btn" type="button" id="projectSignOutCancel" data-i18n="Cancel">Cancel</button>
+        <button class="btn btn-danger" type="button" id="projectSignOutConfirm" data-i18n="Sign out">Sign out</button>
       </div>
     </div>
   </dialog>
