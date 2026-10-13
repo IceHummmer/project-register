@@ -8,9 +8,9 @@
   <meta name="application-name" content="HH Project Register" />
   <meta name="apple-mobile-web-app-title" content="HH Project Register" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <link rel="manifest" href="/manifest.webmanifest" />
-  <link rel="apple-touch-icon" href="/pwa/icon-192.png" />
-  <link rel="icon" type="image/svg+xml" href="/hh-logo.svg" />
+  <link rel="manifest" href="/manifest.webmanifest?v=hh-icon-2" />
+  <link rel="apple-touch-icon" href="/pwa/hh-icon-192.png" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=hh-icon-2" />
   <script>if(new URLSearchParams(location.search).has('auto_sso') || new URLSearchParams(location.search).has('auth_code'))document.documentElement.dataset.moduleSso='pending';</script>
 <link rel="stylesheet" href="styles.css?v=20261013-en-ru-v1" />
 </head>
@@ -81,8 +81,10 @@
             <option value="ru">RU</option>
           </select>
         </label>
-        <span id="projectIdentity" class="hh-identity hidden"></span>
-        <button id="authBtn" class="btn btn-dark" type="button">Sign in</button>
+        <div class="hh-account-controls">
+          <span id="projectIdentity" class="hh-identity hidden"></span>
+          <button id="authBtn" class="btn btn-dark" type="button">Sign in</button>
+        </div>
       </div>
     </header>
 

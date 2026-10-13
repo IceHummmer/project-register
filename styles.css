@@ -1032,3 +1032,14 @@ html[data-module-sso="pending"] .hh-module-loading{display:grid}
  .topbar-actions>.hh-identity{max-width:100px;flex:0 1 auto;margin-left:auto;font-size:11px}
  .topbar-actions>#authBtn{width:auto;flex:0 0 auto}
 }
+
+/* Keep the signed-in identity immediately before Sign out at all breakpoints. */
+.hh-account-controls{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex:0 0 auto;min-width:0;white-space:nowrap}
+.hh-account-controls>.hh-identity{display:block;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#706458}
+.hh-account-controls>.hh-identity.hidden{display:none}
+.hh-account-controls>#authBtn{width:auto;min-width:78px;flex:0 0 auto}
+@media(max-width:620px){
+ .topbar-actions>.hh-account-controls{display:flex;align-items:center;gap:7px;flex:0 1 auto;min-width:0;margin-left:auto;max-width:100%}
+ .hh-account-controls>.hh-identity{min-width:0;max-width:min(31vw,140px);font-size:11px}
+ .hh-account-controls>#authBtn{font-size:12px;min-width:0;padding:0 10px}
+}

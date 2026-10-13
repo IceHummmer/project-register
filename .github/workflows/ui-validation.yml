@@ -19,7 +19,7 @@ jobs:
         run: |
           node --check app.js
           node --check locale.js
-          node --test test/mobile-presence.test.js
+          node --test test/mobile-presence.test.js test/hh-icons.test.js
       - name: Check HH module navigation and brand asset
         run: |
           test -s hh-logo.svg
