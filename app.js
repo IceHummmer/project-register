@@ -2601,6 +2601,7 @@ window.setInterval(() => {
 }, 60000);
 $('#closeSystemMessageDialog')?.addEventListener('click', () => $('#systemMessageDialog').close());
 $('#closeChangeHistoryDialog')?.addEventListener('click', () => $('#changeHistoryDialog').close());
+$('#closeChangeHistoryFooter')?.addEventListener('click', () => $('#changeHistoryDialog').close());
 $('#searchInput').addEventListener('input',render);
 $('#editableOnlyToggle').addEventListener('change', e => {
   state.editableOnly = Boolean(e.target.checked);
