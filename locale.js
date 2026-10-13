@@ -288,7 +288,46 @@ const RU = Object.freeze({
   'DATA_LOAD':'ЗАГРУЗКА ДАННЫХ',
   'info':'Информация',
   'warning':'Предупреждение',
-  'error':'Ошибка'
+  'error':'Ошибка',
+  'Language':'Язык',
+  'Interface language':'Язык интерфейса',
+  'Project name *':'Название проекта *',
+  'Status *':'Статус *',
+  'Enter a customer phone number or email address':'Укажите телефон или электронную почту заказчика',
+  'Planned end cannot be before planned start':'Плановое окончание не может быть раньше начала',
+  'Actual end cannot be before actual start':'Фактическое окончание не может быть раньше начала',
+  'No projects currently require an update.':'Сейчас нет проектов, требующих обновления.',
+  'Sending…':'Отправка…',
+  'Sending':'Отправка',
+  'Finished':'Завершено',
+  'Selected':'Выбрано',
+  'selected':'выбрано',
+  'accepted':'принято',
+  'not confirmed':'не подтверждено',
+  'View only':'Только просмотр',
+  'No registered Project Manager email':'Не указан адрес руководителя проекта',
+  'Current folder':'Текущая папка',
+  'Copy':'Копировать',
+  'Open':'Открыть',
+  'Project updated.':'Проект обновлён.',
+  'Customer directory updated.':'Справочник заказчиков обновлён.',
+  'User added.':'Пользователь добавлен.',
+  'User deleted.':'Пользователь удалён.',
+  'Project and its OneDrive folder were deleted.':'Проект и его папка OneDrive удалены.',
+  'Project Register Folder Opener is not enabled in this browser. Install it once on this computer. If it is already installed, enable it for this browser below.':'Средство открытия папок реестра не включено в этом браузере. Установите его один раз на компьютер или разрешите работу в этом браузере.',
+  'No change records match your search.':'По заданному запросу изменений нет.',
+  'Drag to resize · Double-click to reset · Arrow keys to adjust':'Перетащите для изменения · Двойной щелчок — сброс · Стрелки — размер',
+  'Sort order number: oldest first':'Сортировка: сначала старые номера',
+  'Sort order number: newest first':'Сортировка: сначала новые номера',
+  'The following information needs to be updated:':'Следующие сведения необходимо обновить:',
+  'All changes saved':'Все изменения сохранены',
+  'Save changes':'Сохранить изменения',
+  'NOTIFICATION':'УВЕДОМЛЕНИЕ',
+  'Open message':'Открыть сообщение',
+  'Group':'Группа',
+  'Status changed':'Статус изменён',
+  'Project name':'Название проекта',
+  'Contract':'Договор'
 });
 
 // Maps only canonical, explicitly controlled enum / lookup values.
@@ -313,7 +352,8 @@ export function setLanguage(value) {
 export function t(value) {
   const text = String(value ?? '');
   if (language !== 'ru') return text;
-  return RU[text] || text;
+  const required = text.match(/^(.*?)(\s*\*)$/);
+  return RU[text] || (required && RU[required[1]] ? RU[required[1]] + required[2] : text);
 }
 export function fieldText(value, fieldName) {
   if (language !== 'ru' || value == null) return value == null ? '' : String(value);
@@ -358,7 +398,11 @@ export function initStaticTranslations() {
     if (!node.parentElement || skip(node.parentElement)) continue;
     const value = node.nodeValue;
     const trimmed = value.trim();
-    if (!trimmed || !RU[trimmed]) continue;
+    if (!trimmed || (t(trimmed) === trimmed && !RU[trimmed] &&
+        !RU[trimmed.replace(/\s*\*$/, '')])) continue;
+    if (node.parentElement.matches?.('label.field > span')) {
+      node.parentElement.dataset.i18nSource = trimmed.replace(/\s*\*$/, '');
+    }
     staticText.push({ node, en: value, prefix: value.slice(0, value.indexOf(trimmed)), suffix: value.slice(value.indexOf(trimmed) + trimmed.length) });
   }
   for (const el of document.querySelectorAll('[placeholder],[title],[aria-label]')) {
