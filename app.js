@@ -1,3 +1,5 @@
+import { t, getLanguage, setLanguage, initStaticTranslations, localizeGeneratedUi, fieldText, translateHistoryValue } from './locale.js?v=20261013-i18n-v1';
+
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
@@ -167,15 +169,15 @@ function updateLandingMicrosoftButton() {
   spinner.classList.toggle('hidden', state.backendReady && !state.microsoftRedirecting);
 
   if (state.microsoftRedirecting) {
-    setText(label, 'Opening Microsoft sign-in…');
+    setText(label, t('Opening Microsoft sign-in…'));
   } else if (state.backendWakeFailed) {
-    setText(label, 'Try sign in again');
+    setText(label, t('Try sign in again'));
   } else if (!state.backendReady && state.microsoftSignInQueued) {
-    setText(label, 'Starting secure server…');
+    setText(label, t('Starting secure server…'));
   } else if (!state.backendReady) {
-    setText(label, 'Preparing sign in…');
+    setText(label, t('Preparing sign in…'));
   } else {
-    setText(label, 'Sign in with Microsoft');
+    setText(label, t('Sign in with Microsoft'));
   }
 }
 
@@ -210,7 +212,7 @@ function setText(el, value) { if (el) el.textContent = escapeText(value); }
 
 function showNotice(message, type = 'ok') {
   const el = $('#notice');
-  setText(el, message);
+  setText(el, t(message));
   el.classList.remove('hidden', 'notice-error');
   if (type === 'error') el.classList.add('notice-error');
   clearTimeout(showNotice.timer);
@@ -225,8 +227,8 @@ function operationKey() {
 function beginBusy(title, detail = 'Please wait. Do not close this page.') {
   if (state.operationBusy) return false;
   state.operationBusy = true;
-  setText($('#busyTitle'), title);
-  setText($('#busyText'), detail);
+  setText($('#busyTitle'), t(title));
+  setText($('#busyText'), t(detail));
   $('#busyOverlay').classList.remove('hidden');
   document.body.classList.add('is-busy');
   $('#saveProjectBtn').disabled = true;
@@ -251,7 +253,7 @@ function normalizeRoles(value) {
 }
 
 function roleLabel(role) {
-  return roleNames[role] || role || '';
+  return t(roleNames[role] || role || '');
 }
 
 function rolesLabel(value) {
@@ -302,7 +304,7 @@ function clearSession({ backendReady = state.backendReady } = {}) {
 function setLandingStatus(message = '', error = false) {
   const el = $('#landingStatus');
   if (!el) return;
-  setText(el, message);
+  setText(el, t(message));
   el.classList.toggle('error', Boolean(error));
 }
 
@@ -323,7 +325,7 @@ function renderOtherActiveUsers() {
     const chip = document.createElement('span');
     chip.className = 'online-peer';
     chip.textContent = username;
-    chip.title = 'Currently active on Project Register';
+    chip.title = t('Currently active on Project Register');
     wrap.append(chip);
   }
 }
@@ -354,7 +356,7 @@ function updateAuthUi() {
   $('#authLoggedIn').classList.toggle('hidden', !loggedIn);
   setText($('#authUserName'), state.user?.username || '');
   setText($('#authUserRole'), rolesLabel(state.user));
-  setText($('#authBtn'), loggedIn ? state.user.username : 'Sign in');
+  setText($('#authBtn'), loggedIn ? state.user.username : t('Sign in'));
   renderOtherActiveUsers();
   $('#usersTab').classList.toggle('hidden', !state.user?.canManageUsers);
   $('#systemMessagesTab').classList.toggle('hidden', !state.user?.canManageUsers);
@@ -566,7 +568,9 @@ function filteredProjects() {
       } else if (state.view !== 'all' && projectGroup(p) !== state.view) return false;
       if (state.editableOnly && !p.canEdit) return false;
       if (!q) return true;
-      return Object.values(p).some(v => String(v ?? '').toLowerCase().includes(q));
+      return Object.values(p).some(v => String(v ?? '').toLowerCase().includes(q)) ||
+        fieldText(p.status, 'status').toLocaleLowerCase().includes(q) ||
+        fieldText(p.activityType, 'activityType').toLocaleLowerCase().includes(q);
     })
     .sort(compareProjectNumbers);
 }
@@ -580,7 +584,7 @@ function renderMetrics() {
   for (const [key, label] of items) {
     const div = document.createElement('div'); div.className = 'metric';
     const strong = document.createElement('strong'); strong.textContent = state.user ? counts[key] : '—';
-    const span = document.createElement('span'); span.textContent = label;
+    const span = document.createElement('span'); span.textContent = t(label);
     div.append(strong, span); metrics.append(div);
   }
 }
@@ -686,12 +690,12 @@ function makeColumnsResizable(table, key = columnLayoutKey()) {
     handle.className = 'column-resize-handle';
     handle.setAttribute('role', 'separator');
     handle.setAttribute('aria-orientation', 'vertical');
-    handle.setAttribute('aria-label', `Resize ${th.textContent.trim()} column`);
+    handle.setAttribute('aria-label', getLanguage() === 'ru' ? `Изменить ширину столбца «${th.textContent.trim()}»` : `Resize ${th.textContent.trim()} column`);
     handle.setAttribute('aria-valuemin', String(MIN_COLUMN_WIDTH));
     handle.setAttribute('aria-valuemax', String(MAX_COLUMN_WIDTH));
     handle.setAttribute('aria-valuenow', String(widths[index]));
     handle.setAttribute('tabindex', '0');
-    handle.title = 'Drag to resize · Double-click to reset · Arrow keys to adjust';
+    handle.title = t('Drag to resize · Double-click to reset · Arrow keys to adjust');
 
     const apply = value => {
       adjust(index, value);
@@ -772,11 +776,11 @@ function renderProjectTable() {
       const sort = document.createElement('button');
       sort.type = 'button';
       sort.className = 'order-sort-button';
-      sort.title = state.numberSortDirection === 'desc'
-        ? 'Sort order number: oldest first' : 'Sort order number: newest first';
+      sort.title = t(state.numberSortDirection === 'desc'
+        ? 'Sort order number: oldest first' : 'Sort order number: newest first');
       sort.setAttribute('aria-label', sort.title);
       const text = document.createElement('span');
-      text.textContent = label;
+      text.textContent = t(label);
       const arrow = document.createElement('span');
       arrow.className = 'order-sort-arrow';
       arrow.setAttribute('aria-hidden', 'true');
@@ -788,12 +792,12 @@ function renderProjectTable() {
       });
       th.append(sort);
     } else {
-      th.textContent = label;
+      th.textContent = t(label);
     }
     hr.append(th);
     if (showingOverdue && key === 'projectName') {
       for (const label of ['Update required', 'Overdue by']) {
-        const extra = document.createElement('th'); extra.textContent = label; hr.append(extra);
+        const extra = document.createElement('th'); extra.textContent = t(label); hr.append(extra);
       }
     }
   });
@@ -812,22 +816,22 @@ function renderProjectTable() {
     for (const [key] of projectColumns) {
       const td = document.createElement('td');
       if (key === 'status') {
-        const span = document.createElement('span'); span.className = 'status-pill'; span.textContent = escapeText(p[key]); td.append(span);
+        const span = document.createElement('span'); span.className = 'status-pill'; span.textContent = fieldText(p[key], 'status'); td.append(span);
       } else if (key === 'folderLink' && p.folderLink) {
-        const a = document.createElement('a'); a.className = 'folder-link'; a.href = p.folderLink; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Open folder'; a.addEventListener('click', e => e.stopPropagation()); td.append(a);
+        const a = document.createElement('a'); a.className = 'folder-link'; a.href = p.folderLink; a.target = '_blank'; a.rel = 'noopener'; a.textContent = t('Open folder'); a.addEventListener('click', e => e.stopPropagation()); td.append(a);
       } else {
-        td.textContent = escapeText(p[key]);
-        td.title = escapeText(p[key]);
+        td.textContent = key === 'activityType' ? fieldText(p[key], 'activityType') : escapeText(p[key]);
+        td.title = td.textContent;
       }
       tr.append(td);
       if (showingOverdue && key === 'projectName') {
         const overdue = overdueProjectInfo(p);
         const reason = document.createElement('td');
         reason.className = 'overdue-reason';
-        reason.textContent = overdue?.reasons.join('; ') || '';
+        reason.textContent = overdue?.reasons.map(t).join('; ') || '';
         reason.title = reason.textContent;
         const days = document.createElement('td');
-        days.textContent = overdue ? `${overdue.days} d.` : '';
+        days.textContent = overdue ? `${overdue.days} ${getLanguage() === 'ru' ? 'дн.' : 'd.'}` : '';
         tr.append(reason, days);
       }
     }
@@ -840,6 +844,8 @@ function renderProjectTable() {
       ? '<div class="empty-state"><div><h3>No editable projects</h3><p>Turn off Editable only or change the current view.</p></div></div>'
       : '<div class="empty-state"><div><h3>No matching projects</h3><p>Change the view or search term.</p></div></div>';
     content.innerHTML = message;
+    localizeGeneratedUi(content);
+    for (const el of content.querySelectorAll('h3,p')) el.textContent = t(el.textContent);
   }
 }
 
@@ -870,7 +876,7 @@ function renderCustomers() {
       const edit = document.createElement('button');
       edit.className = 'btn';
       edit.type = 'button';
-      edit.textContent = 'Edit';
+      edit.textContent = t('Edit');
       edit.addEventListener('click', e => {
         e.stopPropagation();
         openCustomers(c);
@@ -879,7 +885,7 @@ function renderCustomers() {
       const del = document.createElement('button');
       del.className = 'btn btn-danger';
       del.type = 'button';
-      del.textContent = 'Delete';
+      del.textContent = t('Delete');
       del.addEventListener('click', e => {
         e.stopPropagation();
         deleteCustomer(c);
@@ -896,6 +902,7 @@ function renderCustomers() {
   table.append(body);
   wrap.append(table);
   content.replaceChildren(wrap);
+  localizeGeneratedUi(content);
   makeColumnsResizable(table);
 }
 
@@ -939,7 +946,8 @@ function changeHistoryEntries(entries, query = '') {
       entry.dateTime, changeHistoryDate(entry.dateTime), entry.user,
       entry.orderNumber, entry.projectName, kind, entry.summary,
       ...entry.changes.flatMap(change => [
-        change.field, change.before, change.after
+        change.field, t(change.field), change.before, change.after,
+        translateHistoryValue(change.before, change.field), translateHistoryValue(change.after, change.field)
       ])
     ];
     return searchable.some(value => String(value ?? '').toLocaleLowerCase().includes(search));
@@ -947,22 +955,24 @@ function changeHistoryEntries(entries, query = '') {
 }
 
 function historyAction(entry) {
-  if (entry.changeType === 'ADD') return 'Created';
-  if (entry.changeType === 'DELETE') return 'Deleted';
-  return 'Updated';
+  if (entry.changeType === 'ADD') return t('Created');
+  if (entry.changeType === 'DELETE') return t('Deleted');
+  return t('Updated');
 }
 
 function historyChangeSummary(entry) {
-  if (entry.changeType === 'ADD') return 'New project';
-  if (entry.changeType === 'DELETE') return 'Project removed';
+  if (entry.changeType === 'ADD') return t('New project');
+  if (entry.changeType === 'DELETE') return t('Project removed');
   const count = entry.changes.length;
-  return count + (count === 1 ? ' field changed' : ' fields changed');
+  return getLanguage() === 'ru' ? `${count} ${count === 1 ? 'поле изменено' : 'полей изменено'}` : count + (count === 1 ? ' field changed' : ' fields changed');
 }
 
+let activeHistoryRecord = null;
 function openChangeHistoryCard(entry) {
+  activeHistoryRecord = entry;
   const dialog = $('#changeHistoryDialog');
   const title = [entry.orderNumber, entry.projectName].filter(Boolean).join(' — ');
-  $('#changeHistoryDialogTitle').textContent = title || 'Project changes';
+  $('#changeHistoryDialogTitle').textContent = title || t('Project changes');
   $('#changeHistoryDialogMeta').textContent =
     changeHistoryDate(entry.dateTime) + ' · ' + (entry.user || 'Unknown user');
   const action = $('#changeHistoryDialogAction');
@@ -975,8 +985,8 @@ function openChangeHistoryCard(entry) {
   const summary = $('#changeHistoryDetailSummary');
   if (entry.changeType !== 'EDIT') {
     summary.textContent = entry.changeType === 'ADD'
-      ? 'This project was created.'
-      : 'This project was deleted.';
+      ? t('This project was created.')
+      : t('This project was deleted.');
     details.classList.add('hidden');
   } else {
     summary.textContent = historyChangeSummary(entry);
@@ -984,9 +994,9 @@ function openChangeHistoryCard(entry) {
     for (const change of entry.changes) {
       const tr = document.createElement('tr');
       const cells = [
-        [change.field || 'Field', 'history-detail-field'],
-        [changeHistoryValue(change.before, change.field), 'history-detail-before'],
-        [changeHistoryValue(change.after, change.field), 'history-detail-after']
+        [t(change.field || 'Field'), 'history-detail-field'],
+        [changeHistoryValue(translateHistoryValue(change.before, change.field), change.field), 'history-detail-before'],
+        [changeHistoryValue(translateHistoryValue(change.after, change.field), change.field), 'history-detail-after']
       ];
       for (const [value, className] of cells) {
         const td = document.createElement('td');
@@ -998,7 +1008,7 @@ function openChangeHistoryCard(entry) {
       body.append(tr);
     }
   }
-  dialog.showModal();
+  if (!dialog.open) dialog.showModal();
 }
 
 function changeHistoryListRow(entry) {
@@ -1006,7 +1016,7 @@ function changeHistoryListRow(entry) {
   tr.className = 'change-history-entry';
   tr.tabIndex = 0;
   tr.setAttribute('role', 'button');
-  tr.setAttribute('aria-label', 'View ' + historyAction(entry).toLowerCase() +
+  tr.setAttribute('aria-label', (getLanguage() === 'ru' ? 'Просмотреть: ' : 'View ') + historyAction(entry).toLowerCase() +
     ' history for project ' + [entry.orderNumber, entry.projectName].filter(Boolean).join(' '));
 
   const project = [entry.orderNumber, entry.projectName].filter(Boolean).join(' — ');
@@ -1041,6 +1051,45 @@ function formatSystemTime(raw) {
     : String(raw || '—');
 }
 
+function localizedSystemSubject(item) {
+  const subject = String(item?.subject || '');
+  if (getLanguage() !== 'ru') return subject;
+  const names = [
+    [/^Scheduled reminder accepted — Project (.*)$/i, 'Плановое напоминание принято — проект '],
+    [/^Reminder could not be sent: Project (.*)$/i, 'Не удалось отправить напоминание — проект '],
+    [/^Reminder delivery failed: Project (.*)$/i, 'Ошибка отправки напоминания — проект '],
+    [/^Automatic reminders: (.*)$/i, 'Автоматические напоминания: '],
+    [/^Cannot send project update: (.*)$/i, 'Невозможно отправить запрос обновления: '],
+    [/^Project folder synchronization unavailable: (.*)$/i, 'Синхронизация папки недоступна: '],
+    [/^Test notification — (.*)$/i, 'Тестовое уведомление — ']
+  ];
+  for (const [pattern, prefix] of names) {
+    const match = subject.match(pattern);
+    if (match) return prefix + match[1];
+  }
+  return t(subject);
+}
+
+function localizedSystemDetails(details) {
+  const raw = String(details || '');
+  if (getLanguage() !== 'ru') return raw;
+  const prefixes = {
+    'Scheduled run':'Плановый запуск', 'Project':'Проект',
+    'Assigned manager':'Руководитель проекта', 'Recipient':'Получатель',
+    'Sender':'Отправитель', 'Email subject':'Тема письма',
+    'Status':'Статус', 'Error':'Ошибка', 'Reason':'Причина',
+    'Endpoint':'Метод API', 'Microsoft Graph accepted':'Принято Microsoft Graph',
+    'Projects requiring updates':'Проектов, требующих обновления',
+    'Failed':'Ошибок'
+  };
+  return raw.split('\n').map(line => {
+    const idx = line.indexOf(': ');
+    if (idx < 0) return t(line);
+    const key = line.slice(0, idx);
+    return prefixes[key] ? prefixes[key] + line.slice(idx) : t(line);
+  }).join('\n');
+}
+
 function systemMessageRow(item) {
   const tr = document.createElement('tr');
   tr.className = 'system-inbox-row' + (!item.readAt ? ' system-unread' : '');
@@ -1048,10 +1097,10 @@ function systemMessageRow(item) {
   tr.setAttribute('role', 'button');
   tr.setAttribute('aria-label', 'Open system message: ' + item.subject);
   const values = [
-    !item.readAt ? '● New' : 'Read',
+    t(!item.readAt ? '● New' : 'Read'),
     formatSystemTime(item.at),
-    item.type || 'SYSTEM',
-    item.subject || '',
+    t(item.type || 'SYSTEM'),
+    localizedSystemSubject(item),
     item.project || '—'
   ];
   for (let i = 0; i < values.length; i++) {
@@ -1086,11 +1135,11 @@ function renderSystemMessages() {
   const toolbar = document.createElement('div');
   toolbar.className = 'system-inbox-toolbar';
   const count = document.createElement('span');
-  count.textContent = state.systemUnreadCount + ' unread · ' + state.systemMessages.length + ' messages';
+  count.textContent = getLanguage() === 'ru' ? `${state.systemUnreadCount} непрочитанных · ${state.systemMessages.length} сообщений` : state.systemUnreadCount + ' unread · ' + state.systemMessages.length + ' messages';
   const test = document.createElement('button');
   test.className = 'btn';
   test.type = 'button';
-  test.textContent = 'Send test notification';
+  test.textContent = t('Send test notification');
   test.addEventListener('click', async () => {
     test.disabled = true;
     try {
@@ -1111,7 +1160,7 @@ function renderSystemMessages() {
   const headings = document.createElement('tr');
   ['Status', 'Date / time', 'Type', 'Message', 'Project'].forEach(label => {
     const th = document.createElement('th');
-    th.textContent = label;
+    th.textContent = t(label);
     headings.append(th);
   });
   head.append(headings); table.append(head);
@@ -1122,20 +1171,22 @@ function renderSystemMessages() {
   if (!rows.length) {
     const empty = document.createElement('div');
     empty.className = 'change-history-empty';
-    empty.textContent = q ? 'No matching system messages.' : 'No system messages yet.';
+    empty.textContent = t(q ? 'No matching system messages.' : 'No system messages yet.');
     container.append(empty);
   }
   content.replaceChildren(container);
   makeColumnsResizable(table);
 }
 
+let activeSystemMessage = null;
 async function openSystemMessage(item) {
+  activeSystemMessage = item;
   const dialog = $('#systemMessageDialog');
-  $('#systemMessageSubject').textContent = item.subject || 'System message';
+  $('#systemMessageSubject').textContent = localizedSystemSubject(item) || t('System message');
   $('#systemMessageMetadata').textContent =
-    formatSystemTime(item.at) + ' · ' + (item.category || 'SYSTEM') +
-    ' · ' + (item.type || 'ERROR') + (item.project ? ' · Project ' + item.project : '');
-  $('#systemMessageDetails').textContent = item.details || 'No additional details.';
+    formatSystemTime(item.at) + ' · ' + t(item.category || 'SYSTEM') +
+    ' · ' + t(item.type || 'ERROR') + (item.project ? ' · ' + t('Project') + ' ' + item.project : '');
+  $('#systemMessageDetails').textContent = localizedSystemDetails(item.details) || t('No additional details.');
   dialog.showModal();
   if (item.readAt) return;
   try {
@@ -1163,9 +1214,11 @@ function renderAudit() {
 
   const summary = document.createElement('div');
   summary.className = 'change-history-summary';
-  summary.textContent = filtered.length + ' change records' +
-    (query.trim() ? ' matching search' : '') +
-    ' · ' + allEntries.length + ' total · Most recent first';
+  summary.textContent = getLanguage() === 'ru'
+    ? `${filtered.length} записей${query.trim() ? ' по запросу' : ''} · всего ${allEntries.length} · сначала новые`
+    : filtered.length + ' change records' +
+      (query.trim() ? ' matching search' : '') +
+      ' · ' + allEntries.length + ' total · Most recent first';
   container.append(summary);
 
   const wrap = document.createElement('div');
@@ -1176,7 +1229,7 @@ function renderAudit() {
   const headRow = document.createElement('tr');
   ['Date / time', 'Project', 'Changed by', 'Action', 'Details'].forEach(label => {
     const th = document.createElement('th');
-    th.textContent = label;
+    th.textContent = t(label);
     headRow.append(th);
   });
   head.append(headRow);
@@ -1194,18 +1247,18 @@ function renderAudit() {
     const empty = document.createElement('p');
     empty.className = 'change-history-empty';
     empty.textContent = query.trim()
-      ? 'No change records match your search.'
-      : 'No project change records have been recorded yet.';
+      ? t('No change records match your search.')
+      : t('No project change records have been recorded yet.');
     container.append(empty);
   } else if (filtered.length > changeHistoryVisibleRows) {
     const footer = document.createElement('div');
     footer.className = 'change-history-more';
     const info = document.createElement('span');
-    info.textContent = 'Showing ' + changeHistoryVisibleRows + ' of ' + filtered.length;
+    info.textContent = getLanguage() === 'ru' ? `Показано ${changeHistoryVisibleRows} из ${filtered.length}` : 'Showing ' + changeHistoryVisibleRows + ' of ' + filtered.length;
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'btn';
-    button.textContent = 'Show 250 more';
+    button.textContent = t('Show 250 more');
     button.addEventListener('click', () => {
       changeHistoryVisibleRows += 250;
       renderAudit();
@@ -1238,7 +1291,7 @@ function makeRoleChecklist(values = [], { includeAdmin = false, lockAdmin = fals
       checkbox.disabled = true;
     }
     const text = document.createElement('span');
-    text.textContent = label;
+    text.textContent = t(label);
     item.append(checkbox, text);
     wrap.append(item);
   }
@@ -1293,10 +1346,10 @@ function refreshUserAccessSaveButton() {
   if (!button || !status) return;
   const total = userAccessDrafts.size;
   button.disabled = savingUserAccess || total === 0;
-  button.textContent = savingUserAccess ? 'Saving…' : 'Save changes';
+  button.textContent = t(savingUserAccess ? 'Saving…' : 'Save changes');
   status.textContent = total
-    ? total + ' unsaved ' + (total === 1 ? 'user' : 'users')
-    : 'All changes saved';
+    ? (getLanguage() === 'ru' ? `${total} несохранённых изменений` : total + ' unsaved ' + (total === 1 ? 'user' : 'users'))
+    : t('All changes saved');
   status.classList.toggle('unsaved', total > 0);
 }
 
@@ -1369,12 +1422,12 @@ function renderUsers() {
   addCard.className = 'user-add-card';
 
   const nameInput = document.createElement('input');
-  nameInput.placeholder = 'User name';
+  nameInput.placeholder = t('User name');
   nameInput.required = true;
 
   const microsoftInput = document.createElement('input');
   microsoftInput.type = 'email';
-  microsoftInput.placeholder = 'Microsoft account';
+  microsoftInput.placeholder = t('Microsoft account');
   microsoftInput.required = true;
 
   const roleControl = makeRoleChecklist(['pm']);
@@ -1382,7 +1435,7 @@ function renderUsers() {
   const addBtn = document.createElement('button');
   addBtn.className = 'btn btn-primary';
   addBtn.type = 'submit';
-  addBtn.textContent = 'Add user';
+  addBtn.textContent = t('Add user');
 
   addCard.append(nameInput, microsoftInput, roleControl, addBtn);
   addCard.addEventListener('submit', async e => {
@@ -1419,7 +1472,7 @@ function renderUsers() {
   saveAll.id = 'saveUserAccessBtn';
   saveAll.type = 'button';
   saveAll.className = 'btn btn-primary';
-  saveAll.textContent = 'Save changes';
+  saveAll.textContent = t('Save changes');
   saveAll.addEventListener('click', saveUserAccessChanges);
   saveBar.append(status, saveAll);
   container.append(saveBar);
@@ -1463,7 +1516,7 @@ function renderUsers() {
     if (u.microsoftLinked) {
       const linked = document.createElement('span');
       linked.className = 'account-linked';
-      linked.textContent = 'Linked';
+      linked.textContent = t('Linked');
       accountTd.append(linked);
     }
 
@@ -1480,7 +1533,7 @@ function renderUsers() {
       pass = document.createElement('input');
       pass.type = 'password';
       pass.className = 'password-reset';
-      pass.placeholder = 'New emergency PIN';
+      pass.placeholder = t('New emergency PIN');
       pass.value = draft?.password || '';
       passwordTd.append(pass);
     } else {
@@ -1503,19 +1556,19 @@ function renderUsers() {
       const del = document.createElement('button');
       del.className = 'btn btn-danger';
       del.type = 'button';
-      del.textContent = 'Delete';
+      del.textContent = t('Delete');
       del.addEventListener('click', async () => {
         if (savingUserAccess) return;
         const warning = userAccessDrafts.size
-          ? 'Unsaved changes will remain pending for other users.\\n\\n' : '';
-        if (!confirm(warning + `Delete user ${u.username}?`)) return;
+          ? (getLanguage() === 'ru' ? 'Несохранённые изменения других пользователей останутся в ожидании.\n\n' : 'Unsaved changes will remain pending for other users.\\n\\n') : '';
+        if (!confirm(warning + (getLanguage() === 'ru' ? `Удалить пользователя ${u.username}?` : `Delete user ${u.username}?`))) return;
 
         try {
           await request(`/api/users/${encodeURIComponent(u.username)}`, { method: 'DELETE' });
           userAccessDrafts.delete(u.username);
           await Promise.all([loadUsers(), refreshLookups()]);
           renderUsers();
-          showNotice('User deleted.');
+          showNotice(t('User deleted.'));
         } catch (error) {
           showNotice(error.message, 'error');
         }
@@ -1532,6 +1585,7 @@ function renderUsers() {
   container.append(wrap);
   content.replaceChildren(container);
   makeColumnsResizable(table);
+  localizeGeneratedUi(content);
   refreshUserAccessSaveButton();
 }
 
@@ -1557,7 +1611,7 @@ function updateTableDisplay() {
   const expand = $('#fullscreenTableBtn');
   if (expand) {
     expand.textContent = ''; // The supplied PNG icons are shown by CSS for both states.
-    expand.title = state.tableFullscreen ? 'Exit table fullscreen' : 'Open table fullscreen';
+    expand.title = t(state.tableFullscreen ? 'Exit table fullscreen' : 'Open table fullscreen');
     expand.setAttribute('aria-label', expand.title);
     expand.setAttribute('aria-pressed', String(state.tableFullscreen));
   }
@@ -1583,7 +1637,7 @@ function renderToolbar() {
 }
 
 function render() {
-  const [title, subtitle] = viewInfo[state.view] || viewInfo.all;
+  const [title, subtitle] = (viewInfo[state.view] || viewInfo.all).map(t);
   setText($('#viewTitle'), title);
   setText($('#viewSubtitle'), subtitle);
   $('#viewSubtitle').classList.toggle('hidden', !subtitle);
@@ -1600,6 +1654,7 @@ function render() {
   else if (state.view === 'users') renderUsers();
   else if (state.view === 'system') renderSystemMessages();
   else renderProjectTable();
+  localizeGeneratedUi($('#content'));
 }
 
 function selectedProject() { return state.projects.find(p => p.orderNumber === state.selectedNumber) || null; }
@@ -1614,9 +1669,9 @@ function option(select, value, label = value) {
   const o = document.createElement('option'); o.value = value; o.textContent = label; select.append(o);
 }
 
-function fillSelect(select, values, blank = true) {
+function fillSelect(select, values, blank = true, optionLabel = v => v) {
   const previous = select.value; select.replaceChildren(); if (blank) option(select, '', '—');
-  [...new Set((values || []).filter(Boolean))].forEach(v => option(select, v));
+  [...new Set((values || []).filter(Boolean))].forEach(v => option(select, v, optionLabel(v)));
   if ([...select.options].some(o => o.value === previous)) select.value = previous;
 }
 
@@ -1676,13 +1731,13 @@ function updateProjectRequiredFields() {
     const field = label.querySelector('input[name],select[name]');
     const text = label.querySelector('span');
     if (!field || !text) continue;
-    if (!text.dataset.baseLabel) text.dataset.baseLabel = text.textContent.replace(/\s*\*$/, '');
-    text.textContent = text.dataset.baseLabel + (required.has(field.name) ? ' *' : '');
+    if (!text.dataset.baseLabel) text.dataset.baseLabel = (text.dataset.i18nSource || text.textContent).replace(/\s*\*$/, '');
+    text.textContent = t(text.dataset.baseLabel) + (required.has(field.name) ? ' *' : '');
     field.required = !readOnly && required.has(field.name);
   }
   const needsContact = form.elements.status.value !== 'Rejected';
-  const contactHint = needsContact ? ' Enter at least one contact: phone or email.' : '';
-  $('#projectRequiredHelp').textContent = 'Fields marked * are required.' + contactHint;
+  const contactHint = needsContact ? ' ' + t('Enter at least one contact: phone or email.') : '';
+  $('#projectRequiredHelp').textContent = t('Fields marked * are required.') + contactHint;
 }
 
 function validateProjectForm() {
@@ -1703,19 +1758,19 @@ function validateProjectForm() {
   for (const name of required) {
     if (!String(fields[name]?.value ?? '').trim()) {
       mark(name);
-      errors.push(`${fields[name]?.closest('.field')?.querySelector('span')?.dataset.baseLabel || name} is required`);
+      errors.push(`${t(fields[name]?.closest('.field')?.querySelector('span')?.dataset.baseLabel || name)} ${getLanguage() === 'ru' ? '— обязательное поле' : 'is required'}`);
     }
   }
   if (fields.status.value !== 'Rejected' && !fields.customerPhone.value.trim() && !fields.customerEmail.value.trim()) {
     mark('customerPhone');
     mark('customerEmail');
-    errors.push('Enter a customer phone number or email address');
+    errors.push(t('Enter a customer phone number or email address'));
   }
   if (fields.startPlan.value && fields.endPlan.value && fields.endPlan.value < fields.startPlan.value) {
-    mark('endPlan'); errors.push('Planned end cannot be before planned start');
+    mark('endPlan'); errors.push(t('Planned end cannot be before planned start'));
   }
   if (fields.startFact.value && fields.endFact.value && fields.endFact.value < fields.startFact.value) {
-    mark('endFact'); errors.push('Actual end cannot be before actual start');
+    mark('endFact'); errors.push(t('Actual end cannot be before actual start'));
   }
   if (errors.length) {
     $('#projectValidation').textContent = errors.join('; ');
@@ -1727,8 +1782,8 @@ function validateProjectForm() {
 
 function populateProjectSelects() {
   const f = $('#projectForm').elements;
-  fillSelect(f.status, state.lookups.statuses || ['In plan','Offer Preparation','Awaiting Client Decision','Confirmed','In Progress','Completed','Rejected']);
-  fillSelect(f.activityType, state.lookups.activityTypes || []);
+  fillSelect(f.status, state.lookups.statuses || ['In plan','Offer Preparation','Awaiting Client Decision','Confirmed','In Progress','Completed','Rejected'], true, v => fieldText(v, 'status'));
+  fillSelect(f.activityType, state.lookups.activityTypes || [], true, v => fieldText(v, 'activityType'));
   fillSelect(f.customer, customerNames());
   fillSelect(f.projectManager, state.lookups.projectManagers || []);
   fillSelect(f.currency, state.lookups.currencies || []);
@@ -1775,7 +1830,7 @@ function setProjectDialogMode({ project = null, readOnly = false } = {}) {
   $('#deleteProjectBtn').classList.toggle('hidden', readOnly || !project);
 
   const closeBtn = $('#projectDialog .modal-actions .action-row [data-close-dialog]');
-  if (closeBtn) closeBtn.textContent = readOnly ? 'Close' : 'Cancel';
+  if (closeBtn) closeBtn.textContent = t(readOnly ? 'Close' : 'Cancel');
 }
 
 // Edit leases protect one project at a time. Other projects stay available.
@@ -1801,8 +1856,10 @@ function projectEditorLockLost(reason) {
   stopProjectEditRefresh();
   projectEditLease = null;
   const notice = $('#projectLockNotice');
-  notice.textContent = 'Editing is no longer available. ' + reason +
-    ' Your unsaved values remain visible; close and reopen the project before editing again.';
+  notice.textContent = getLanguage() === 'ru'
+    ? `Редактирование больше недоступно: ${reason}. Несохранённые значения остались в форме. Закройте проект и откройте его снова.`
+    : 'Editing is no longer available. ' + reason +
+      ' Your unsaved values remain visible; close and reopen the project before editing again.';
   notice.classList.remove('hidden');
   const project = state.projects.find(p => p.orderNumber === state.editingNumber);
   setProjectDialogMode({ project: project || { orderNumber: state.editingNumber }, readOnly: true });
@@ -1841,17 +1898,19 @@ async function openProjectEditor(project = null) {
       let result = await request(lockUrl, { method: 'POST', body: {} });
       project = result.project || project;
       if (!result.acquired && result.sameAccount) {
-        const confirmed = confirm(
-          'You are already editing this project in another window or on another device.\\n\\n' +
-          'Switch editing to this device? The previous window will become read-only and ' +
-          'any unsaved changes there will NOT be transferred.'
-        );
+        const confirmed = confirm(getLanguage() === 'ru'
+          ? 'Этот проект уже открыт для изменения на другом устройстве под вашей учётной записью.\n\nПереключить редактирование на это устройство? На предыдущем устройстве останется только просмотр, несохранённые изменения НЕ будут перенесены.'
+          : 'You are already editing this project in another window or on another device.\\n\\n' +
+            'Switch editing to this device? The previous window will become read-only and ' +
+            'any unsaved changes there will NOT be transferred.');
         if (confirmed) {
           result = await request(lockUrl, { method: 'POST', body: { takeOver: true } });
           project = result.project || project;
         } else {
-          notice = 'This project is open for editing under your account on another device. ' +
-            'Close that editor, or reopen this project and confirm switching devices.';
+          notice = getLanguage() === 'ru'
+            ? 'Проект открыт на другом устройстве под вашей учётной записью. Закройте там форму или откройте здесь снова и подтвердите переключение.'
+            : 'This project is open for editing under your account on another device. ' +
+              'Close that editor, or reopen this project and confirm switching devices.';
         }
       }
       if (result.acquired) {
@@ -1863,15 +1922,17 @@ async function openProjectEditor(project = null) {
         readOnly = true;
         if (!notice) {
           notice = result.sameAccount
-            ? 'This project is open under your account in another session. Close it there to edit here.'
-            : 'This project is being edited by ' + (result.lockedBy || 'another user') +
-              '. It is available in read-only mode until they close the editor.';
+            ? (getLanguage() === 'ru' ? 'Проект открыт в другом сеансе вашей учётной записи. Закройте его там для редактирования здесь.' : 'This project is open under your account in another session. Close it there to edit here.')
+            : (getLanguage() === 'ru'
+              ? `Проект сейчас редактирует ${result.lockedBy || 'другой пользователь'}. До закрытия его формы здесь доступен только просмотр.`
+              : 'This project is being edited by ' + (result.lockedBy || 'another user') +
+                '. It is available in read-only mode until they close the editor.');
         }
       }
     }
   } catch (error) {
     readOnly = true;
-    notice = 'Editing is unavailable: ' + error.message;
+    notice = (getLanguage() === 'ru' ? 'Редактирование недоступно: ' : 'Editing is unavailable: ') + error.message;
     if (project) {
       try {
         const response = await request(`/api/projects/${encodeURIComponent(project.orderNumber)}`);
@@ -1884,12 +1945,12 @@ async function openProjectEditor(project = null) {
   setText(
     $('#projectModeLabel'),
     project
-      ? `PROJECT ${project.orderNumber}${readOnly ? ' · READ ONLY' : ''}`
-      : 'NEW PROJECT'
+      ? `${t('PROJECT')} ${project.orderNumber}${readOnly ? ' · ' + t('READ ONLY') : ''}`
+      : t('NEW PROJECT')
   );
   setText(
     $('#projectDialogTitle'),
-    project ? (readOnly ? 'Project details' : 'Edit project') : 'Add project'
+    t(project ? (readOnly ? 'Project details' : 'Edit project') : 'Add project')
   );
 
   $('#projectValidation').classList.add('hidden');
@@ -1922,7 +1983,7 @@ async function saveProject() {
   const editing = Boolean(state.editingNumber);
   if (editing) {
     if (!projectEditLease || projectEditLease.number !== String(state.editingNumber)) {
-      validation.textContent = 'This project is not locked for editing. Close and reopen it.';
+      validation.textContent = getLanguage() === 'ru' ? 'Проект не закреплён за этим редактором. Закройте и откройте его снова.' : 'This project is not locked for editing. Close and reopen it.';
       validation.classList.remove('hidden');
       return;
     }
@@ -2088,7 +2149,7 @@ async function saveCustomer() {
 }
 
 async function deleteCustomer(c) {
-  if (!confirm(`Delete ${c.customer} / ${c.representative}?`)) return;
+  if (!confirm(getLanguage() === 'ru' ? `Удалить ${c.customer} / ${c.representative}?` : `Delete ${c.customer} / ${c.representative}?`)) return;
   try {
     await request(`/api/customers/${encodeURIComponent(c.id)}`, {method:'DELETE'});
     const r=await request('/api/customers');state.customers=r.customers||[];renderCustomerDialogRows();render();
@@ -2117,7 +2178,7 @@ function updateMailSelectionUi() {
   selectAll.indeterminate = chosen.length > 0 && chosen.length < available.length;
   selectAll.disabled = bulkUpdateMail.sending || available.length === 0;
   $('#sendUpdateRequestsBtn').disabled = bulkUpdateMail.sending || chosen.length === 0;
-  $('#updateRequestsSelectedCount').textContent = chosen.length + ' selected';
+  $('#updateRequestsSelectedCount').textContent = getLanguage() === 'ru' ? `${chosen.length} выбрано` : chosen.length + ' selected';
 }
 
 function setBulkSending(sending) {
@@ -2181,8 +2242,8 @@ async function openUpdateRequestsDialog() {
     row.append(selectCell);
     const values = [
       p.orderNumber, p.projectName,
-      overdue ? overdue.reasons.join('; ') : '',
-      overdue ? overdue.days + ' d.' : '',
+      overdue ? overdue.reasons.map(t).join('; ') : '',
+      overdue ? overdue.days + (getLanguage() === 'ru' ? ' дн.' : ' d.') : '',
       p.projectManager || '—'
     ];
     for (const value of values) {
@@ -2192,7 +2253,7 @@ async function openUpdateRequestsDialog() {
     }
     const recipientInfo = document.createElement('small');
     recipientInfo.className = 'bulk-mail-recipient' + (recipient?.email ? '' : ' missing');
-    recipientInfo.textContent = recipient?.email || recipient?.error || 'No registered Project Manager email';
+    recipientInfo.textContent = recipient?.email || t(recipient?.error || 'No registered Project Manager email');
     row.lastElementChild.append(recipientInfo);
     const result = document.createElement('span');
     result.className = 'bulk-mail-result';
@@ -2203,8 +2264,8 @@ async function openUpdateRequestsDialog() {
   }
   const sendable = projects.filter(p => bulkUpdateMail.recipients.get(String(p.orderNumber))?.email).length;
   $('#updateRequestsProgress').textContent = projects.length
-    ? sendable + ' of ' + projects.length + ' projects have a registered Project Manager email.'
-    : 'No projects currently require an update.';
+    ? (getLanguage() === 'ru' ? `${sendable} из ${projects.length} проектов имеют адрес руководителя` : sendable + ' of ' + projects.length + ' projects have a registered Project Manager email.')
+    : t('No projects currently require an update.');
   updateMailSelectionUi();
   $('#updateRequestsDialog').showModal();
   makeColumnsResizable($('#updateRequestsDialog .bulk-mail-table'), 'update-requests');
@@ -2216,11 +2277,13 @@ async function sendSelectedProjectUpdates() {
     .filter(input => input.checked && !input.disabled && !bulkUpdateMail.accepted.has(input.dataset.number))
     .map(input => input.dataset.number);
   if (!chosen.length) return;
-  const prompt = 'Send ' + chosen.length + ' separate project update email'
-    + (chosen.length === 1 ? '' : 's')
-    + '?\n\nFrom: system@helsinginhitsaus.fi\nTo: the assigned Project Managers'
-    + '\n\nThe recipient email for each project is shown in the table.'
-    + '\nEach selected project will be emailed individually.';
+  const prompt = getLanguage() === 'ru'
+    ? `Отправить ${chosen.length} отдельных запросов на обновление проектов?\n\nОт: system@helsinginhitsaus.fi\nКому: назначенным руководителям проектов\n\nАдрес каждого получателя показан в таблице. Для каждого проекта будет отправлено отдельное письмо.`
+    : 'Send ' + chosen.length + ' separate project update email'
+      + (chosen.length === 1 ? '' : 's')
+      + '?\n\nFrom: system@helsinginhitsaus.fi\nTo: the assigned Project Managers'
+      + '\n\nThe recipient email for each project is shown in the table.'
+      + '\nEach selected project will be emailed individually.';
   if (!confirm(prompt)) return;
   setBulkSending(true);
   let accepted = 0;
@@ -2228,8 +2291,9 @@ async function sendSelectedProjectUpdates() {
   try {
     for (let i = 0; i < chosen.length; i++) {
       const number = chosen[i];
-      $('#updateRequestsProgress').textContent =
-        'Sending ' + (i + 1) + ' of ' + chosen.length + ': project ' + number + '…';
+      $('#updateRequestsProgress').textContent = getLanguage() === 'ru'
+        ? `Отправка ${i + 1} из ${chosen.length}: проект ${number}…`
+        : 'Sending ' + (i + 1) + ' of ' + chosen.length + ': project ' + number + '…';
       let key = bulkUpdateMail.requestKeys.get(number);
       if (!key) {
         key = operationKey();
@@ -2244,15 +2308,16 @@ async function sendSelectedProjectUpdates() {
         if (!response.accepted) throw new Error('Microsoft 365 did not accept the request.');
         bulkUpdateMail.accepted.add(number);
         accepted++;
-        markMailResult(number, 'accepted', 'Accepted by Microsoft 365 for ' + response.to);
+        markMailResult(number, 'accepted', (getLanguage() === 'ru' ? 'Принято Microsoft 365 для ' : 'Accepted by Microsoft 365 for ') + response.to);
       } catch (error) {
         failed++;
-        markMailResult(number, 'failed', 'Not confirmed: ' + error.message);
+        markMailResult(number, 'failed', (getLanguage() === 'ru' ? 'Не подтверждено: ' : 'Not confirmed: ') + error.message);
       }
     }
-    $('#updateRequestsProgress').textContent =
-      'Finished: ' + accepted + ' accepted, ' + failed + ' not confirmed.'
-      + (failed ? ' Review the errors below and retry only unsuccessful projects.' : '');
+    $('#updateRequestsProgress').textContent = getLanguage() === 'ru'
+      ? `Завершено: принято ${accepted}, не подтверждено ${failed}.` + (failed ? ' ' + t('Review the errors below and retry only unsuccessful projects.') : '')
+      : 'Finished: ' + accepted + ' accepted, ' + failed + ' not confirmed.'
+        + (failed ? ' Review the errors below and retry only unsuccessful projects.' : '');
   } finally {
     setBulkSending(false);
   }
@@ -2733,6 +2798,55 @@ $('#closeCustomerDialog').addEventListener('click',()=>$('#customerDialog').clos
 
 const openerInstallStatus = processOpenerInstallMarker();
 
+// Capture original English markup before initial render. Translation does not
+// touch stored business data, free-text inputs or Microsoft user identities.
+initStaticTranslations();
+const languageSelect = $('#languageSelect');
+if (languageSelect) {
+  languageSelect.value = getLanguage();
+  languageSelect.addEventListener('change', event => {
+    setLanguage(event.target.value);
+    const form = $('#projectForm')?.elements;
+    if (form) {
+      for (const key of ['status', 'activityType']) {
+        const select = form[key];
+        if (!select) continue;
+        for (const item of select.options) {
+          if (item.value) item.textContent = fieldText(item.value, key);
+        }
+      }
+      if ($('#projectDialog')?.open) {
+        updateProjectRequiredFields();
+        const readOnly = $('#projectForm').dataset.readOnly === 'true';
+        const existing = state.projects.find(p => String(p.orderNumber) === String(state.editingNumber));
+        setText($('#projectModeLabel'), existing
+          ? t('PROJECT') + ' ' + existing.orderNumber + (readOnly ? ' · ' + t('READ ONLY') : '')
+          : t('NEW PROJECT'));
+        setText($('#projectDialogTitle'),
+          t(existing ? (readOnly ? 'Project details' : 'Edit project') : 'Add project'));
+        const closeBtn = $('#projectDialog .modal-actions .action-row [data-close-dialog]');
+        if (closeBtn) closeBtn.textContent = t(readOnly ? 'Close' : 'Cancel');
+      }
+    }
+    if ($('#changeHistoryDialog')?.open && activeHistoryRecord) {
+      openChangeHistoryCard(activeHistoryRecord);
+    }
+    if ($('#systemMessageDialog')?.open && activeSystemMessage) {
+      const item = activeSystemMessage;
+      $('#systemMessageSubject').textContent = localizedSystemSubject(item) || t('System message');
+      $('#systemMessageMetadata').textContent =
+        formatSystemTime(item.at) + ' · ' + t(item.category || 'SYSTEM') +
+        ' · ' + t(item.type || 'ERROR') +
+        (item.project ? ' · ' + t('Project') + ' ' + item.project : '');
+      $('#systemMessageDetails').textContent =
+        localizedSystemDetails(item.details) || t('No additional details.');
+    }
+    updateLandingMicrosoftButton();
+    updateAuthUi();
+    render();
+  });
+}
+setLanguage(getLanguage());
 updateAuthUi();
 render();
 
