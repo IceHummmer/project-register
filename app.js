@@ -2970,7 +2970,7 @@ if (languageSelect) {
 }
 setLanguage(getLanguage());
 void fetch('/version.json',{cache:'no-store'}).then(r=>r.ok?r.json():null)
- .then(data=>{if(/^\\d+\\.\\d+\\.\\d+$/.test(data?.version||'')){const version=document.querySelector('[data-hh-version]');if(version)version.textContent='v'+data.version;}}).catch(()=>{});
+ .then(data=>{if(/^\d+\.\d+\.\d+$/.test(data?.version||'')){const version=document.querySelector('[data-hh-version]');if(version)version.textContent='v'+data.version;}}).catch(()=>{});
 updateAuthUi();
 render();
 
