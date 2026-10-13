@@ -707,6 +707,7 @@ tbody tr:hover {
 }
 
 /* Change History: readable business field diffs, without raw technical logs. */
+/* One history item per project save; detailed changes open in a separate card. */
 .change-history-container { width: 100%; }
 .change-history-summary {
   padding: 12px 16px;
@@ -717,27 +718,27 @@ tbody tr:hover {
   border-bottom: 1px solid var(--line);
 }
 .change-history-wrap { max-height: calc(100vh - 330px); }
-.change-history-table { min-width: 1000px; table-layout: fixed; }
-.change-history-table th:nth-child(1), .change-history-table td:nth-child(1) { width: 135px; }
-.change-history-table th:nth-child(2), .change-history-table td:nth-child(2) { width: 160px; }
-.change-history-table th:nth-child(3), .change-history-table td:nth-child(3) { width: 250px; }
-.change-history-table th:nth-child(4), .change-history-table td:nth-child(4) { width: 170px; }
-.change-history-table th:nth-child(5), .change-history-table td:nth-child(5),
-.change-history-table th:nth-child(6), .change-history-table td:nth-child(6) { width: 190px; }
-.change-history-table td {
+.workspace .table-wrap .change-history-table { min-width: 940px; table-layout: fixed; }
+.change-history-table th:nth-child(1), .change-history-table td:nth-child(1) { width: 142px; }
+.change-history-table th:nth-child(2), .change-history-table td:nth-child(2) { width: 290px; }
+.change-history-table th:nth-child(3), .change-history-table td:nth-child(3) { width: 170px; }
+.change-history-table th:nth-child(4), .change-history-table td:nth-child(4) { width: 120px; }
+.change-history-table th:nth-child(5), .change-history-table td:nth-child(5) { width: 188px; }
+.workspace .table-wrap .change-history-table td {
   max-width: none;
   white-space: normal;
   overflow-wrap: anywhere;
-  vertical-align: top;
-  line-height: 1.45;
-  padding-top: 11px;
-  padding-bottom: 11px;
+  vertical-align: middle;
+  line-height: 1.5;
+  padding-top: 13px;
+  padding-bottom: 13px;
 }
-.change-history-table .history-project { font-weight: 650; }
-.change-history-table .history-field { color: #6c5139; font-weight: 700; }
-.change-history-table .history-before { color: #7b4341; }
-.change-history-table .history-after { color: #255d49; }
-.change-history-table .history-empty { color: var(--muted); font-style: italic; }
+.change-history-entry { cursor: pointer; }
+.change-history-entry:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+.change-history-entry:hover { background: #f5efe8; }
+.change-history-table .history-project { font-weight: 750; }
+.change-history-table .history-list-summary { color: #73563d; font-weight: 700; }
+.change-history-table .history-list-action { color: var(--accent); font-weight: 700; }
 .change-history-more {
   display: flex; justify-content: center; align-items: center; gap: 14px;
   padding: 14px; border-top: 1px solid var(--line);
@@ -745,6 +746,24 @@ tbody tr:hover {
 }
 .change-history-empty { padding: 28px 16px; text-align: center; color: var(--muted); }
 
+/* Read-only details card: one line for every changed field within that save. */
+.change-history-dialog { width: min(96vw, 900px); max-height: min(92dvh, 960px); }
+.change-history-dialog .modal-card { display: flex; flex-direction: column; max-height: min(92dvh, 960px); min-height: 0; }
+.history-dialog-meta { margin: 10px 0 0; color: var(--muted); font-size: 12px; }
+.history-dialog-overview { display: flex; align-items: center; gap: 11px; flex-wrap: wrap; padding-bottom: 18px; color: var(--muted); font-size: 13px; }
+.history-action-badge { background: #eee4d8; color: #725136; padding: 5px 10px; border-radius: 99px; font-weight: 750; font-size: 12px; }
+.history-action-badge[data-action="ADD"] { background: #e2f2e7; color: #246246; }
+.history-action-badge[data-action="DELETE"] { background: #fbe7e5; color: #933a32; }
+.history-details-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 12px; min-height: 0; }
+.history-details-table { width: 100%; min-width: 580px; table-layout: fixed; font-size: 13px; }
+.history-details-table th:nth-child(1) { width: 27%; }
+.history-details-table th:nth-child(2), .history-details-table th:nth-child(3) { width: 36.5%; }
+.history-details-table td { max-width: none; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; padding: 13px 14px; vertical-align: top; }
+.history-details-table .history-detail-field { font-weight: 750; color: #4e5862; }
+.history-details-table .history-detail-before { color: #803d39; background: #fffafa; }
+.history-details-table .history-detail-after { color: #205d49; background: #f9fdfa; }
+.history-details-table .history-empty { color: var(--muted); font-style: italic; }
+.change-history-dialog .modal-actions { margin-top: 18px; flex: 0 0 auto; }
 
 /* Excel-like resizing in every workspace (project, overdue, customers, history, users).
    Explicit colgroup widths win over existing CSS default widths; zoom still scales all. */
