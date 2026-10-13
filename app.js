@@ -462,6 +462,7 @@ async function restoreSession() {
   state.backendReady = false;
   state.backendWakeFailed = true;
   state.microsoftSignInQueued = false;
+  document.documentElement.removeAttribute('data-module-sso');
   updateLandingMicrosoftButton();
   setLandingStatus('Secure server is taking longer than usual. Click Try sign in again.', true);
   return false;
@@ -489,6 +490,8 @@ async function loadCoreData() {
   if (state.view === 'users' && state.user.canManageUsers) await loadUsers();
   if (state.user.canManageUsers) void loadSystemMessages();
   render();
+  // Wake the other Render service in the background; never block this screen.
+  void fetch('https://hh-warehouse-api.onrender.com/api/health',{mode:'no-cors',cache:'no-store'}).catch(()=>{});
   void refreshPresence();
 }
 
