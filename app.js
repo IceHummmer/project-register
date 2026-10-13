@@ -597,6 +597,7 @@ function columnLayoutKey(view = state.view) {
   if (view === 'customers') return canEditCustomers() ? 'customers-edit' : 'customers-view';
   if (view === 'audit') return 'history';
   if (view === 'users') return 'users';
+  if (view === 'system') return 'system-inbox';
   return null;
 }
 
