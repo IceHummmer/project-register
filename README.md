@@ -48,3 +48,12 @@ All workspace tables support Excel-style column resizing by dragging the right e
 - Use the **↔ Reset column widths** toolbar control to restore all widths in the current workspace.
 - Width preferences are stored only in this device/browser's local storage, isolated by table layout. They are not part of any project and are not synchronized to the backend.
 - Table zoom works with toolbar **− / 100% / +** and **Ctrl + mouse wheel** in all workspace views, including Change History. Existing fullscreen/pinch controls remain available.
+
+
+## Change History: one card per project operation
+
+Change History shows **one clickable list record per saved project change**, regardless of how many fields were edited together. Each record displays Helsinki-local timestamp, project number/name, person who changed it, operation type and a concise summary (such as "5 fields changed").
+
+Click the row (or focus it and press Enter/Space) to open a read-only change card with the complete list of user-facing fields modified by that save and their **Before / After** values. Project creation/deletion remains visible as single event cards. No-op edits and technical OneDrive folder-sync events remain hidden. Search covers field labels and old/new values even while cards are closed. Column resizing, 250-record pagination, table zoom and fullscreen remain available.
+
+The backend continues to store one audit record per operation and returns the existing `changes` array. This update affects **frontend presentation only**, with no migration or modification of project/audit data.
