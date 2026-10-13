@@ -967,7 +967,9 @@ function historyChangeSummary(entry) {
   return getLanguage() === 'ru' ? `${count} ${count === 1 ? 'поле изменено' : 'полей изменено'}` : count + (count === 1 ? ' field changed' : ' fields changed');
 }
 
+let activeHistoryRecord = null;
 function openChangeHistoryCard(entry) {
+  activeHistoryRecord = entry;
   const dialog = $('#changeHistoryDialog');
   const title = [entry.orderNumber, entry.projectName].filter(Boolean).join(' — ');
   $('#changeHistoryDialogTitle').textContent = title || t('Project changes');
@@ -1006,7 +1008,7 @@ function openChangeHistoryCard(entry) {
       body.append(tr);
     }
   }
-  dialog.showModal();
+  if (!dialog.open) dialog.showModal();
 }
 
 function changeHistoryListRow(entry) {
@@ -1176,7 +1178,9 @@ function renderSystemMessages() {
   makeColumnsResizable(table);
 }
 
+let activeSystemMessage = null;
 async function openSystemMessage(item) {
+  activeSystemMessage = item;
   const dialog = $('#systemMessageDialog');
   $('#systemMessageSubject').textContent = localizedSystemSubject(item) || t('System message');
   $('#systemMessageMetadata').textContent =
@@ -2823,6 +2827,19 @@ if (languageSelect) {
         const closeBtn = $('#projectDialog .modal-actions .action-row [data-close-dialog]');
         if (closeBtn) closeBtn.textContent = t(readOnly ? 'Close' : 'Cancel');
       }
+    }
+    if ($('#changeHistoryDialog')?.open && activeHistoryRecord) {
+      openChangeHistoryCard(activeHistoryRecord);
+    }
+    if ($('#systemMessageDialog')?.open && activeSystemMessage) {
+      const item = activeSystemMessage;
+      $('#systemMessageSubject').textContent = localizedSystemSubject(item) || t('System message');
+      $('#systemMessageMetadata').textContent =
+        formatSystemTime(item.at) + ' · ' + t(item.category || 'SYSTEM') +
+        ' · ' + t(item.type || 'ERROR') +
+        (item.project ? ' · ' + t('Project') + ' ' + item.project : '');
+      $('#systemMessageDetails').textContent =
+        localizedSystemDetails(item.details) || t('No additional details.');
     }
     updateLandingMicrosoftButton();
     updateAuthUi();
