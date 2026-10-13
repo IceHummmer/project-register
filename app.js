@@ -169,15 +169,15 @@ function updateLandingMicrosoftButton() {
   spinner.classList.toggle('hidden', state.backendReady && !state.microsoftRedirecting);
 
   if (state.microsoftRedirecting) {
-    setText(label, 'Opening Microsoft sign-in…');
+    setText(label, t('Opening Microsoft sign-in…'));
   } else if (state.backendWakeFailed) {
-    setText(label, 'Try sign in again');
+    setText(label, t('Try sign in again'));
   } else if (!state.backendReady && state.microsoftSignInQueued) {
-    setText(label, 'Starting secure server…');
+    setText(label, t('Starting secure server…'));
   } else if (!state.backendReady) {
-    setText(label, 'Preparing sign in…');
+    setText(label, t('Preparing sign in…'));
   } else {
-    setText(label, 'Sign in with Microsoft');
+    setText(label, t('Sign in with Microsoft'));
   }
 }
 
@@ -2166,7 +2166,7 @@ function updateMailSelectionUi() {
   selectAll.indeterminate = chosen.length > 0 && chosen.length < available.length;
   selectAll.disabled = bulkUpdateMail.sending || available.length === 0;
   $('#sendUpdateRequestsBtn').disabled = bulkUpdateMail.sending || chosen.length === 0;
-  $('#updateRequestsSelectedCount').textContent = chosen.length + ' selected';
+  $('#updateRequestsSelectedCount').textContent = getLanguage() === 'ru' ? `${chosen.length} выбрано` : chosen.length + ' selected';
 }
 
 function setBulkSending(sending) {
@@ -2230,8 +2230,8 @@ async function openUpdateRequestsDialog() {
     row.append(selectCell);
     const values = [
       p.orderNumber, p.projectName,
-      overdue ? overdue.reasons.join('; ') : '',
-      overdue ? overdue.days + ' d.' : '',
+      overdue ? overdue.reasons.map(t).join('; ') : '',
+      overdue ? overdue.days + (getLanguage() === 'ru' ? ' дн.' : ' d.') : '',
       p.projectManager || '—'
     ];
     for (const value of values) {
@@ -2241,7 +2241,7 @@ async function openUpdateRequestsDialog() {
     }
     const recipientInfo = document.createElement('small');
     recipientInfo.className = 'bulk-mail-recipient' + (recipient?.email ? '' : ' missing');
-    recipientInfo.textContent = recipient?.email || recipient?.error || 'No registered Project Manager email';
+    recipientInfo.textContent = recipient?.email || t(recipient?.error || 'No registered Project Manager email');
     row.lastElementChild.append(recipientInfo);
     const result = document.createElement('span');
     result.className = 'bulk-mail-result';
@@ -2252,8 +2252,8 @@ async function openUpdateRequestsDialog() {
   }
   const sendable = projects.filter(p => bulkUpdateMail.recipients.get(String(p.orderNumber))?.email).length;
   $('#updateRequestsProgress').textContent = projects.length
-    ? sendable + ' of ' + projects.length + ' projects have a registered Project Manager email.'
-    : 'No projects currently require an update.';
+    ? (getLanguage() === 'ru' ? `${sendable} из ${projects.length} проектов имеют адрес руководителя` : sendable + ' of ' + projects.length + ' projects have a registered Project Manager email.')
+    : t('No projects currently require an update.');
   updateMailSelectionUi();
   $('#updateRequestsDialog').showModal();
   makeColumnsResizable($('#updateRequestsDialog .bulk-mail-table'), 'update-requests');
@@ -2277,8 +2277,9 @@ async function sendSelectedProjectUpdates() {
   try {
     for (let i = 0; i < chosen.length; i++) {
       const number = chosen[i];
-      $('#updateRequestsProgress').textContent =
-        'Sending ' + (i + 1) + ' of ' + chosen.length + ': project ' + number + '…';
+      $('#updateRequestsProgress').textContent = getLanguage() === 'ru'
+        ? `Отправка ${i + 1} из ${chosen.length}: проект ${number}…`
+        : 'Sending ' + (i + 1) + ' of ' + chosen.length + ': project ' + number + '…';
       let key = bulkUpdateMail.requestKeys.get(number);
       if (!key) {
         key = operationKey();
@@ -2299,9 +2300,10 @@ async function sendSelectedProjectUpdates() {
         markMailResult(number, 'failed', 'Not confirmed: ' + error.message);
       }
     }
-    $('#updateRequestsProgress').textContent =
-      'Finished: ' + accepted + ' accepted, ' + failed + ' not confirmed.'
-      + (failed ? ' Review the errors below and retry only unsuccessful projects.' : '');
+    $('#updateRequestsProgress').textContent = getLanguage() === 'ru'
+      ? `Завершено: принято ${accepted}, не подтверждено ${failed}.` + (failed ? ' ' + t('Review the errors below and retry only unsuccessful projects.') : '')
+      : 'Finished: ' + accepted + ' accepted, ' + failed + ' not confirmed.'
+        + (failed ? ' Review the errors below and retry only unsuccessful projects.' : '');
   } finally {
     setBulkSending(false);
   }
