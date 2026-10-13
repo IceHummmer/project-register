@@ -11,7 +11,7 @@
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="apple-touch-icon" href="/pwa/icon-192.png" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<link rel="stylesheet" href="styles.css?v=20261013-system-inbox-v1" />
+<link rel="stylesheet" href="styles.css?v=20261013-grouped-history-v1" />
 </head>
 <body>
   <section id="loginLanding" class="login-landing">
@@ -121,6 +121,32 @@
       </section>
     </main>
   </div>
+
+  <dialog id="changeHistoryDialog" class="modal change-history-dialog" aria-labelledby="changeHistoryDialogTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <div class="eyebrow">PROJECT CHANGE RECORD</div>
+          <h3 id="changeHistoryDialogTitle">Project changes</h3>
+          <p id="changeHistoryDialogMeta" class="history-dialog-meta"></p>
+        </div>
+        <button id="closeChangeHistoryDialog" class="icon-btn" type="button" aria-label="Close change record">×</button>
+      </div>
+      <div class="history-dialog-overview">
+        <span id="changeHistoryDialogAction" class="history-action-badge">Updated</span>
+        <span id="changeHistoryDetailSummary">Changes saved</span>
+      </div>
+      <div id="changeHistoryDetailsWrap" class="history-details-wrap">
+        <table class="history-details-table" aria-label="Fields changed in this project update">
+          <thead><tr><th>Field</th><th>Before</th><th>After</th></tr></thead>
+          <tbody id="changeHistoryDetailsBody"></tbody>
+        </table>
+      </div>
+      <div class="modal-actions">
+        <button id="closeChangeHistoryFooter" class="btn" type="button">Close</button>
+      </div>
+    </div>
+  </dialog>
 
   <dialog id="systemMessageDialog" class="modal modal-small" aria-labelledby="systemMessageSubject">
     <div class="modal-card">
@@ -330,7 +356,7 @@
     </div>
   </div>
 
-  <script type="module" src="app.js?v=20261013-system-inbox-v1"></script>
+  <script type="module" src="app.js?v=20261013-grouped-history-v1"></script>
   <script type="module" src="/pwa/install.js?v=20261009-pwa-v1"></script>
 </body>
 </html>
