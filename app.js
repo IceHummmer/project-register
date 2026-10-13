@@ -325,7 +325,7 @@ function renderOtherActiveUsers() {
     const chip = document.createElement('span');
     chip.className = 'online-peer';
     chip.textContent = username;
-    chip.title = 'Currently active on Project Register';
+    chip.title = t('Currently active on Project Register');
     wrap.append(chip);
   }
 }
@@ -356,7 +356,7 @@ function updateAuthUi() {
   $('#authLoggedIn').classList.toggle('hidden', !loggedIn);
   setText($('#authUserName'), state.user?.username || '');
   setText($('#authUserRole'), rolesLabel(state.user));
-  setText($('#authBtn'), loggedIn ? state.user.username : 'Sign in');
+  setText($('#authBtn'), loggedIn ? state.user.username : t('Sign in'));
   renderOtherActiveUsers();
   $('#usersTab').classList.toggle('hidden', !state.user?.canManageUsers);
   $('#systemMessagesTab').classList.toggle('hidden', !state.user?.canManageUsers);
@@ -688,12 +688,12 @@ function makeColumnsResizable(table, key = columnLayoutKey()) {
     handle.className = 'column-resize-handle';
     handle.setAttribute('role', 'separator');
     handle.setAttribute('aria-orientation', 'vertical');
-    handle.setAttribute('aria-label', `Resize ${th.textContent.trim()} column`);
+    handle.setAttribute('aria-label', getLanguage() === 'ru' ? `Изменить ширину столбца «${th.textContent.trim()}»` : `Resize ${th.textContent.trim()} column`);
     handle.setAttribute('aria-valuemin', String(MIN_COLUMN_WIDTH));
     handle.setAttribute('aria-valuemax', String(MAX_COLUMN_WIDTH));
     handle.setAttribute('aria-valuenow', String(widths[index]));
     handle.setAttribute('tabindex', '0');
-    handle.title = 'Drag to resize · Double-click to reset · Arrow keys to adjust';
+    handle.title = t('Drag to resize · Double-click to reset · Arrow keys to adjust');
 
     const apply = value => {
       adjust(index, value);
@@ -774,8 +774,8 @@ function renderProjectTable() {
       const sort = document.createElement('button');
       sort.type = 'button';
       sort.className = 'order-sort-button';
-      sort.title = state.numberSortDirection === 'desc'
-        ? 'Sort order number: oldest first' : 'Sort order number: newest first';
+      sort.title = t(state.numberSortDirection === 'desc'
+        ? 'Sort order number: oldest first' : 'Sort order number: newest first');
       sort.setAttribute('aria-label', sort.title);
       const text = document.createElement('span');
       text.textContent = t(label);
@@ -874,7 +874,7 @@ function renderCustomers() {
       const edit = document.createElement('button');
       edit.className = 'btn';
       edit.type = 'button';
-      edit.textContent = 'Edit';
+      edit.textContent = t('Edit');
       edit.addEventListener('click', e => {
         e.stopPropagation();
         openCustomers(c);
@@ -883,7 +883,7 @@ function renderCustomers() {
       const del = document.createElement('button');
       del.className = 'btn btn-danger';
       del.type = 'button';
-      del.textContent = 'Delete';
+      del.textContent = t('Delete');
       del.addEventListener('click', e => {
         e.stopPropagation();
         deleteCustomer(c);
@@ -1550,7 +1550,7 @@ function renderUsers() {
       const del = document.createElement('button');
       del.className = 'btn btn-danger';
       del.type = 'button';
-      del.textContent = 'Delete';
+      del.textContent = t('Delete');
       del.addEventListener('click', async () => {
         if (savingUserAccess) return;
         const warning = userAccessDrafts.size
@@ -1579,6 +1579,7 @@ function renderUsers() {
   container.append(wrap);
   content.replaceChildren(container);
   makeColumnsResizable(table);
+  localizeGeneratedUi(content);
   refreshUserAccessSaveButton();
 }
 
@@ -1604,7 +1605,7 @@ function updateTableDisplay() {
   const expand = $('#fullscreenTableBtn');
   if (expand) {
     expand.textContent = ''; // The supplied PNG icons are shown by CSS for both states.
-    expand.title = state.tableFullscreen ? 'Exit table fullscreen' : 'Open table fullscreen';
+    expand.title = t(state.tableFullscreen ? 'Exit table fullscreen' : 'Open table fullscreen');
     expand.setAttribute('aria-label', expand.title);
     expand.setAttribute('aria-pressed', String(state.tableFullscreen));
   }
@@ -2781,6 +2782,36 @@ $('#closeCustomerDialog').addEventListener('click',()=>$('#customerDialog').clos
 
 const openerInstallStatus = processOpenerInstallMarker();
 
+// Capture original English markup before initial render. Translation does not
+// touch stored business data, free-text inputs or Microsoft user identities.
+initStaticTranslations();
+const languageSelect = $('#languageSelect');
+if (languageSelect) {
+  languageSelect.value = getLanguage();
+  languageSelect.addEventListener('change', event => {
+    setLanguage(event.target.value);
+    const form = $('#projectForm')?.elements;
+    if (form) {
+      for (const key of ['status', 'activityType']) {
+        const select = form[key];
+        if (!select) continue;
+        for (const item of select.options) {
+          if (item.value) item.textContent = fieldText(item.value, key);
+        }
+      }
+      if ($('#projectDialog')?.open) {
+        updateProjectRequiredFields();
+        const readOnly = $('#projectForm').dataset.readOnly === 'true';
+        const closeBtn = $('#projectDialog .modal-actions .action-row [data-close-dialog]');
+        if (closeBtn) closeBtn.textContent = t(readOnly ? 'Close' : 'Cancel');
+      }
+    }
+    updateLandingMicrosoftButton();
+    updateAuthUi();
+    render();
+  });
+}
+setLanguage(getLanguage());
 updateAuthUi();
 render();
 
