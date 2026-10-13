@@ -1,3 +1,5 @@
+import { t, getLanguage, setLanguage, initStaticTranslations, localizeGeneratedUi, fieldText, translateHistoryValue } from './locale.js?v=20261013-i18n-v1';
+
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
@@ -251,7 +253,7 @@ function normalizeRoles(value) {
 }
 
 function roleLabel(role) {
-  return roleNames[role] || role || '';
+  return t(roleNames[role] || role || '');
 }
 
 function rolesLabel(value) {
@@ -580,7 +582,7 @@ function renderMetrics() {
   for (const [key, label] of items) {
     const div = document.createElement('div'); div.className = 'metric';
     const strong = document.createElement('strong'); strong.textContent = state.user ? counts[key] : '—';
-    const span = document.createElement('span'); span.textContent = label;
+    const span = document.createElement('span'); span.textContent = t(label);
     div.append(strong, span); metrics.append(div);
   }
 }
@@ -776,7 +778,7 @@ function renderProjectTable() {
         ? 'Sort order number: oldest first' : 'Sort order number: newest first';
       sort.setAttribute('aria-label', sort.title);
       const text = document.createElement('span');
-      text.textContent = label;
+      text.textContent = t(label);
       const arrow = document.createElement('span');
       arrow.className = 'order-sort-arrow';
       arrow.setAttribute('aria-hidden', 'true');
@@ -788,12 +790,12 @@ function renderProjectTable() {
       });
       th.append(sort);
     } else {
-      th.textContent = label;
+      th.textContent = t(label);
     }
     hr.append(th);
     if (showingOverdue && key === 'projectName') {
       for (const label of ['Update required', 'Overdue by']) {
-        const extra = document.createElement('th'); extra.textContent = label; hr.append(extra);
+        const extra = document.createElement('th'); extra.textContent = t(label); hr.append(extra);
       }
     }
   });
@@ -812,22 +814,22 @@ function renderProjectTable() {
     for (const [key] of projectColumns) {
       const td = document.createElement('td');
       if (key === 'status') {
-        const span = document.createElement('span'); span.className = 'status-pill'; span.textContent = escapeText(p[key]); td.append(span);
+        const span = document.createElement('span'); span.className = 'status-pill'; span.textContent = fieldText(p[key], 'status'); td.append(span);
       } else if (key === 'folderLink' && p.folderLink) {
-        const a = document.createElement('a'); a.className = 'folder-link'; a.href = p.folderLink; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Open folder'; a.addEventListener('click', e => e.stopPropagation()); td.append(a);
+        const a = document.createElement('a'); a.className = 'folder-link'; a.href = p.folderLink; a.target = '_blank'; a.rel = 'noopener'; a.textContent = t('Open folder'); a.addEventListener('click', e => e.stopPropagation()); td.append(a);
       } else {
-        td.textContent = escapeText(p[key]);
-        td.title = escapeText(p[key]);
+        td.textContent = key === 'activityType' ? fieldText(p[key], 'activityType') : escapeText(p[key]);
+        td.title = td.textContent;
       }
       tr.append(td);
       if (showingOverdue && key === 'projectName') {
         const overdue = overdueProjectInfo(p);
         const reason = document.createElement('td');
         reason.className = 'overdue-reason';
-        reason.textContent = overdue?.reasons.join('; ') || '';
+        reason.textContent = overdue?.reasons.map(t).join('; ') || '';
         reason.title = reason.textContent;
         const days = document.createElement('td');
-        days.textContent = overdue ? `${overdue.days} d.` : '';
+        days.textContent = overdue ? `${overdue.days} ${getLanguage() === 'ru' ? 'дн.' : 'd.'}` : '';
         tr.append(reason, days);
       }
     }
@@ -840,6 +842,8 @@ function renderProjectTable() {
       ? '<div class="empty-state"><div><h3>No editable projects</h3><p>Turn off Editable only or change the current view.</p></div></div>'
       : '<div class="empty-state"><div><h3>No matching projects</h3><p>Change the view or search term.</p></div></div>';
     content.innerHTML = message;
+    localizeGeneratedUi(content);
+    for (const el of content.querySelectorAll('h3,p')) el.textContent = t(el.textContent);
   }
 }
 
@@ -896,6 +900,7 @@ function renderCustomers() {
   table.append(body);
   wrap.append(table);
   content.replaceChildren(wrap);
+  localizeGeneratedUi(content);
   makeColumnsResizable(table);
 }
 
@@ -1238,7 +1243,7 @@ function makeRoleChecklist(values = [], { includeAdmin = false, lockAdmin = fals
       checkbox.disabled = true;
     }
     const text = document.createElement('span');
-    text.textContent = label;
+    text.textContent = t(label);
     item.append(checkbox, text);
     wrap.append(item);
   }
@@ -1583,7 +1588,7 @@ function renderToolbar() {
 }
 
 function render() {
-  const [title, subtitle] = viewInfo[state.view] || viewInfo.all;
+  const [title, subtitle] = (viewInfo[state.view] || viewInfo.all).map(t);
   setText($('#viewTitle'), title);
   setText($('#viewSubtitle'), subtitle);
   $('#viewSubtitle').classList.toggle('hidden', !subtitle);
