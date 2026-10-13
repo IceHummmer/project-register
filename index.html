@@ -22,6 +22,11 @@
       <p>Sign in with your Helsingin Hitsaus Microsoft account to continue.</p>
 
       <div id="landingStatus" class="login-landing-status">Connecting securely…</div>
+      <div id="projectModuleDenied" class="module-access-denied hidden" role="alert">
+        <strong>Access to Project Register is not granted</strong>
+        <p>Your corporate account is recognized, but this registry has not granted the required permissions.</p>
+        <button id="projectModuleReturn" class="btn" type="button">← Back to Warehouse Register</button>
+      </div>
 
       <button id="landingMicrosoftLoginBtn" class="btn btn-primary login-ms-btn is-preparing" type="button">
         <span id="landingMicrosoftSpinner" class="login-inline-spinner" aria-hidden="true"></span>
