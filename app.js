@@ -623,7 +623,7 @@ function makeColumnsResizable(table, key = columnLayoutKey()) {
   if (!key || !table) return;
   const headers = Array.from(table.tHead?.rows[0]?.cells || []);
   if (!headers.length || table.classList.contains('resizable-table')) return;
-  const scale = state.tableZoom / 100;
+  const scale = table.closest('.workspace') ? state.tableZoom / 100 : 1;
   const naturalWidths = headers.map(th =>
     Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH,
       Math.round((th.getBoundingClientRect().width || th.offsetWidth || 100) / scale)
@@ -688,7 +688,7 @@ function makeColumnsResizable(table, key = columnLayoutKey()) {
       const onMove = moveEvent => {
         if (moveEvent.pointerId !== pointerId) return;
         moveEvent.preventDefault();
-        const zoom = state.tableZoom / 100;
+        const zoom = table.closest('.workspace') ? state.tableZoom / 100 : 1;
         const next = initialWidth + (moveEvent.clientX - initialX) / zoom;
         apply(next);
         if (widths[index] !== initialWidth) changed = true;
@@ -1853,6 +1853,7 @@ function openCustomers(editItem = null) {
   const f = $('#customerForm'); f.reset(); f.elements.id.value = '';
   if (editItem) Object.entries(editItem).forEach(([k,v]) => { if (f.elements[k]) f.elements[k].value = v ?? ''; });
   $('#customerDialog').showModal();
+  makeColumnsResizable($('#customerDialog .table-wrap table'), 'customer-management');
 }
 
 function renderCustomerDialogRows() {
@@ -1996,6 +1997,7 @@ async function openUpdateRequestsDialog() {
     : 'No projects currently require an update.';
   updateMailSelectionUi();
   $('#updateRequestsDialog').showModal();
+  makeColumnsResizable($('#updateRequestsDialog .bulk-mail-table'), 'update-requests');
 }
 
 async function sendSelectedProjectUpdates() {
