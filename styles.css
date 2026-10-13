@@ -947,3 +947,16 @@ tbody tr:hover {
 .workspace .table-wrap th { overflow-wrap: normal; }
 .field span { overflow-wrap: anywhere; }
 .tab { flex-shrink: 0; }
+
+/* Shared Helsingin Hitsaus module header and original orange logo. */
+.project-brand{display:flex;align-items:center;gap:14px;min-width:0}
+.hh-logo{display:block;object-fit:contain;flex-shrink:0}
+.project-hh-logo{height:54px;width:42px}
+.login-hh-logo{height:75px;width:57px;margin:0 auto 15px}
+.module-switch{display:flex;align-items:center;gap:8px;white-space:nowrap;font-size:12px;font-weight:700;color:var(--muted)}
+.module-switch select{height:38px;min-width:175px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink);font-weight:700;outline-color:var(--accent)}
+.module-access-denied{padding:17px;border:1px solid #f2c1b7;background:#fff2ee;color:#752e20;border-radius:12px;margin:14px 0;text-align:left}
+.module-access-denied strong{font-size:14px}
+.module-access-denied p{font-size:12px;line-height:1.55}
+.module-access-denied .btn{margin-top:5px}
+@media(max-width:900px){.module-switch{flex-wrap:wrap}.project-brand{align-items:center}}

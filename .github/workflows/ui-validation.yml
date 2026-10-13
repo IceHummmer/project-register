@@ -1,0 +1,27 @@
+name: Project Register UI validation
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ui-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Parse Project Register application and bilingual translations
+        run: |
+          node --check app.js
+          node --check locale.js
+      - name: Check HH module navigation and brand asset
+        run: |
+          test -s hh-logo.svg
+          grep -q 'projectModuleSelect' index.html
+          grep -q 'projectModuleDenied' index.html
+          grep -q 'prompt=none' app.js

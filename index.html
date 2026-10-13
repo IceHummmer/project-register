@@ -10,17 +10,23 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="apple-touch-icon" href="/pwa/icon-192.png" />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/hh-logo.svg" />
 <link rel="stylesheet" href="styles.css?v=20261013-en-ru-v1" />
 </head>
 <body>
   <section id="loginLanding" class="login-landing">
     <div class="login-landing-card">
+      <img class="hh-logo login-hh-logo" src="/hh-logo.svg" alt="Helsingin Hitsaus" />
       <div class="eyebrow">PROJECT CONTROL</div>
       <h1>Project Register</h1>
       <p>Sign in with your Helsingin Hitsaus Microsoft account to continue.</p>
 
       <div id="landingStatus" class="login-landing-status">Connecting securely…</div>
+      <div id="projectModuleDenied" class="module-access-denied hidden" role="alert">
+        <strong>Access to Project Register is not granted</strong>
+        <p>Your corporate account is recognized, but this registry has not granted the required permissions.</p>
+        <button id="projectModuleReturn" class="btn" type="button">← Back to Warehouse Register</button>
+      </div>
 
       <button id="landingMicrosoftLoginBtn" class="btn btn-primary login-ms-btn is-preparing" type="button">
         <span id="landingMicrosoftSpinner" class="login-inline-spinner" aria-hidden="true"></span>
@@ -44,11 +50,9 @@
 
   <div id="appShell" class="app-shell hidden">
     <header class="topbar">
-      <div>
-        <div class="eyebrow">PROJECT CONTROL</div>
-        <h1>Project Register</h1>
-      </div>
+      <div class="project-brand"><img class="hh-logo project-hh-logo" src="/hh-logo.svg" alt="Helsingin Hitsaus" /><div><div class="eyebrow">PROJECT CONTROL</div><h1>Project Register</h1></div></div>
       <div class="topbar-actions">
+        <label class="module-switch" for="projectModuleSelect"><span id="projectModuleLabel">Module</span><select id="projectModuleSelect" aria-label="Module"><option value="projects">Project Register</option><option value="warehouse">Warehouse Register</option></select></label>
         <button id="installAppBtn" type="button" class="btn install-app-btn" title="Install Project Register as an app on this computer">
           <span class="install-app-icon" aria-hidden="true">↧</span>
           <span>Install app</span>

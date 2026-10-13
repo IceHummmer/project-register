@@ -1,5 +1,13 @@
 import { t, getLanguage, setLanguage, initStaticTranslations, localizeGeneratedUi, fieldText, translateHistoryValue } from './locale.js?v=20261013-i18n-v1';
 
+// Module links use this tab, never window.open. Each backend keeps its own
+// authorization decisions; Microsoft provides SSO only, not shared privileges.
+const PROJECT_REGISTRY_URL='https://project-register.helsinginhitsaus.fi/';
+const WAREHOUSE_REGISTRY_URL='https://hh-warehouse.onrender.com/';
+const incomingModule=new URL(location.href).searchParams.get('from_module')==='warehouse';
+if(incomingModule)sessionStorage.setItem('hhProjectIncomingModule','warehouse');
+const moduleSsoPending=new URL(location.href).searchParams.get('auto_sso')==='1';
+const moduleOrigin=()=>sessionStorage.getItem('hhProjectIncomingModule')==='warehouse';
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
@@ -121,6 +129,8 @@ function cleanMicrosoftAuthParams() {
   const url = new URL(window.location.href);
   url.searchParams.delete('auth_code');
   url.searchParams.delete('auth_error');
+  url.searchParams.delete('auto_sso');
+  url.searchParams.delete('from_module');
   const clean = `${url.pathname}${url.search}${url.hash}`;
   window.history.replaceState({}, document.title, clean);
 }
@@ -134,7 +144,13 @@ async function completeMicrosoftSignIn() {
   cleanMicrosoftAuthParams();
 
   if (authError) {
-    showNotice(authError, 'error');
+    if(moduleOrigin()&&/not authorized|access denied|no access|not permitted/i.test(authError)){
+      showProjectModuleDenied();
+    }else{
+      setLandingStatus(authError,true);
+      // A silent sign-in can legitimately require user interaction.
+      // Keep the normal Microsoft button available as a fallback.
+    }
     return true;
   }
 
@@ -148,10 +164,12 @@ async function completeMicrosoftSignIn() {
     setText($('#busyTitle'), 'Loading projects…');
     setText($('#busyText'), 'Preparing the project register.');
     await loadCoreData();
+    if(moduleOrigin())sessionStorage.removeItem('hhProjectIncomingModule');
     showNotice(`Signed in as ${state.user.username}.`);
   } catch (error) {
     clearSession();
-    showNotice(error.message, 'error');
+    if(moduleOrigin()&&/not authorized|denied|forbidden/i.test(error.message))showProjectModuleDenied();
+    else showNotice(error.message, 'error');
   } finally {
     endBusy();
   }
@@ -188,9 +206,20 @@ function performMicrosoftRedirect() {
   state.backendWakeFailed = false;
   updateLandingMicrosoftButton();
   setLandingStatus('Opening your company Microsoft sign-in…');
-  window.location.assign(api('/api/auth/microsoft/start'));
+  window.location.assign(api('/api/auth/microsoft/start')+(moduleOrigin()?'?prompt=none':''));
 }
 
+function showProjectModuleDenied(){
+ const panel=$('#projectModuleDenied');
+ panel?.classList.remove('hidden');
+ $('#loginLanding').classList.remove('hidden');
+ $('#appShell').classList.add('hidden');
+ setLandingStatus('');
+}
+function navigateWarehouseModule(){
+ // A local Project admin password is deliberately NOT transferred to Warehouse.
+ window.location.assign(WAREHOUSE_REGISTRY_URL+'?from_module=projects&auto_sso=1');
+}
 function startMicrosoftSignIn() {
   if (state.operationBusy || state.microsoftRedirecting) return;
 
@@ -2709,6 +2738,11 @@ $('#updateRequestsDialog').addEventListener('cancel', event => {
   if (bulkUpdateMail.sending) event.preventDefault();
 });
 $('#manageCustomersBtn').addEventListener('click',()=>openCustomers());
+$('#projectModuleSelect').addEventListener('change',event=>{
+ if(event.target.value==='warehouse')navigateWarehouseModule();
+ event.target.value='projects';
+});
+$('#projectModuleReturn').addEventListener('click',()=>{window.location.assign(WAREHOUSE_REGISTRY_URL);});
 $('#authBtn').addEventListener('click',()=>$('#authDialog').showModal());
 $('#microsoftLoginBtn').addEventListener('click', startMicrosoftSignIn);
 $('#landingMicrosoftLoginBtn').addEventListener('click', startMicrosoftSignIn);
@@ -2796,6 +2830,12 @@ $('#customerForm').addEventListener('submit',e=>{e.preventDefault();saveCustomer
 $('#resetCustomerBtn').addEventListener('click',()=>{$('#customerForm').reset();$('#customerForm').elements.id.value='';});
 $('#closeCustomerDialog').addEventListener('click',()=>$('#customerDialog').close());
 
+// When switching from Warehouse, automatically attempt Entra SSO only once.
+// If Microsoft needs interaction, normal sign-in remains available.
+if(moduleSsoPending && moduleOrigin()){
+ window.history.replaceState({},document.title,location.pathname);
+ state.microsoftSignInQueued=true;
+}
 const openerInstallStatus = processOpenerInstallMarker();
 
 // Capture original English markup before initial render. Translation does not
