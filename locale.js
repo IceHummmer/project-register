@@ -5,6 +5,12 @@ let language = 'en';
 try { language = localStorage.getItem(STORAGE_KEY) === 'ru' ? 'ru' : 'en'; } catch {}
 
 const RU = Object.freeze({
+  'Module':'Модуль',
+  'Warehouse Register':'Реестр склада',
+  'Access to Project Register is not granted':'Нет доступа к Реестру проектов',
+  'Your corporate account is recognized, but this registry has not granted the required permissions.':'Корпоративная учётная запись распознана, но доступ к Реестру проектов не предоставлен.',
+  '← Back to Warehouse Register':'← Вернуться в Реестр склада',
+  'Back to Warehouse Register':'Вернуться в Реестр склада',
   'PROJECT CONTROL':'УПРАВЛЕНИЕ ПРОЕКТАМИ',
   'Project Register':'Реестр проектов',
   'HH Project Register':'Реестр проектов HH',
