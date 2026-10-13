@@ -23,5 +23,9 @@ jobs:
         run: |
           test -s hh-logo.svg
           grep -q 'projectModuleButton' index.html
+          grep -q 'loginLanguageSelect' index.html
+          grep -q 'projectAdminToggle' index.html
+          grep -q 'id="moduleLoading"' index.html
+          ! grep -q 'projectModuleSelect' index.html
           grep -q 'projectModuleDenied' index.html
           grep -q 'prompt=none' app.js
