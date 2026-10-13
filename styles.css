@@ -874,3 +874,25 @@ tbody tr:hover {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
+
+
+/* Main administrator's private, mail-style system notification inbox. */
+.system-inbox-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 13px 16px; border-bottom: 1px solid var(--line);
+  color: var(--muted); font-size: 12px; font-weight: 650;
+}
+.system-inbox-wrap { max-height: calc(100vh - 335px); }
+.workspace .table-wrap .system-inbox-table { min-width: 890px; }
+.workspace .table-wrap .system-inbox-table td {
+  white-space: normal; overflow-wrap: anywhere; max-width: none;
+}
+.system-inbox-row { cursor: pointer; }
+.system-inbox-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+.system-inbox-row.system-unread { background: #f4eee6; font-weight: 700; }
+.system-inbox-row.system-unread:hover { background: #ebe1d4; }
+.system-inbox-status { color: var(--accent); font-size: 11px; }
+.system-inbox-subject { min-width: 250px; }
+.system-message-metadata { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.system-message-details { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.65;
+  background: #f8f9fa; border-radius: 10px; padding: 15px; border: 1px solid var(--line); }
