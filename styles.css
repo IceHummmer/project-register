@@ -1043,3 +1043,11 @@ html[data-module-sso="pending"] .hh-module-loading{display:grid}
  .hh-account-controls>.hh-identity{min-width:0;max-width:min(31vw,140px);font-size:11px}
  .hh-account-controls>#authBtn{font-size:12px;min-width:0;padding:0 10px}
 }
+
+/* HH unified user account action and compact release footer */
+.hh-account-controls{gap:0;min-width:0;max-width:220px}
+.hh-account-controls>.hh-account-button{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;min-width:90px;padding:0 14px;border-radius:9px}
+.hh-signout-card{min-width:min(340px,90vw);padding:20px}
+.hh-copyright{text-align:center;color:#9c8e80;font-size:11px;letter-spacing:.03em;padding:18px 12px 24px}
+.hh-copyright [data-hh-version]{font-variant-numeric:tabular-nums;font-weight:700;color:#80654d}
+@media(max-width:620px){.topbar-actions>.hh-account-controls{max-width:42%;margin-left:auto}.hh-account-controls>.hh-account-button{max-width:100%;padding:0 10px;font-size:11px;min-width:0}}

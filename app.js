@@ -135,6 +135,24 @@ function cleanMicrosoftAuthParams() {
   window.history.replaceState({}, document.title, clean);
 }
 
+async function completeAdminTransfer(){
+ const ticket=new URLSearchParams(location.hash.slice(1)).get('hh_admin_transfer');
+ if(!ticket)return false;
+ history.replaceState({},document.title,location.pathname+location.search);
+ document.documentElement.dataset.moduleSso='pending';
+ try{
+  const result=await request('/api/auth/admin-handoff/exchange',{method:'POST',body:{ticket}});
+  if(result.user?.authMode!=='admin')throw new Error('Administrator authorization was not granted');
+  state.user=result.user;
+  await loadCoreData();
+  setLandingStatus('');
+ }catch(error){
+  document.documentElement.removeAttribute('data-module-sso');
+  clearSession({backendReady:true});
+  setLandingStatus('Administrator transfer failed. Sign in as administrator: '+error.message,true);
+ }
+ return true;
+}
 async function completeMicrosoftSignIn() {
   const url = new URL(window.location.href);
   const code = url.searchParams.get('auth_code') || '';
@@ -219,8 +237,19 @@ function showProjectModuleDenied(){
  $('#appShell').classList.add('hidden');
  setLandingStatus('');
 }
-function navigateWarehouseModule(){
- // A local Project admin password is deliberately NOT transferred to Warehouse.
+async function navigateWarehouseModule(){
+ const button=$('#projectModuleButton');
+ if(state.user?.authMode==='admin'){
+  button.disabled=true;
+  try{
+   const {ticket}=await request('/api/auth/admin-handoff/issue',{method:'POST',body:{}});
+   if(!ticket)throw new Error('Missing administrator transfer proof');
+   window.location.assign(WAREHOUSE_REGISTRY_URL+'#hh_admin_transfer='+encodeURIComponent(ticket));
+  }catch(error){
+   showNotice('Administrator transfer unavailable: '+error.message,'error');
+  }finally{button.disabled=false;}
+  return;
+ }
  window.location.assign(WAREHOUSE_REGISTRY_URL+'?from_module=projects&auto_sso=1');
 }
 function startMicrosoftSignIn() {
@@ -399,10 +428,9 @@ function updateAuthUi() {
   $('#authLoggedIn').classList.toggle('hidden', !loggedIn);
   setText($('#authUserName'), state.user?.username || '');
   setText($('#authUserRole'), rolesLabel(state.user));
-  setText($('#authBtn'),loggedIn?t('Sign out'):t('Sign in'));
+  setText($('#authBtn'),loggedIn?state.user.username:t('Sign in'));
+  $('#authBtn').title=loggedIn?t('Account options'):t('Sign in');
   $('#authBtn').classList.toggle('btn-dark',!loggedIn);
-  $('#projectIdentity').classList.toggle('hidden',!loggedIn);
-  setText($('#projectIdentity'),loggedIn?state.user.username:'');
   renderOtherActiveUsers();
   $('#usersTab').classList.toggle('hidden', !state.user?.canManageUsers);
   $('#systemMessagesTab').classList.toggle('hidden', !state.user?.canManageUsers);
@@ -2769,9 +2797,19 @@ async function logOutProject(){
  showNotice('Signed out.');
 }
 $('#authBtn').addEventListener('click',()=>{
- if(state.user){void logOutProject();return;}
+ if(state.user){$('#projectSignOutDialog').showModal();return;}
  $('#authDialog').showModal();
 });
+$('#projectSignOutConfirm').addEventListener('click',async()=>{
+ $('#projectSignOutConfirm').disabled=true;
+ try{await logOutProject();}finally{
+  $('#projectSignOutConfirm').disabled=false;
+  $('#projectSignOutDialog').close();
+ }
+});
+for(const id of ['#projectSignOutClose','#projectSignOutCancel']){
+ $(id).addEventListener('click',()=>$('#projectSignOutDialog').close());
+}
 $('#microsoftLoginBtn').addEventListener('click', startMicrosoftSignIn);
 $('#landingMicrosoftLoginBtn').addEventListener('click', startMicrosoftSignIn);
 $('#landingEmergencyForm').addEventListener('submit', async e => {
@@ -2931,6 +2969,8 @@ if (languageSelect) {
   });
 }
 setLanguage(getLanguage());
+void fetch('/version.json',{cache:'no-store'}).then(r=>r.ok?r.json():null)
+ .then(data=>{if(/^\d+\.\d+\.\d+$/.test(data?.version||'')){const version=document.querySelector('[data-hh-version]');if(version)version.textContent='v'+data.version;}}).catch(()=>{});
 updateAuthUi();
 render();
 
@@ -2938,7 +2978,8 @@ if (openerInstallStatus === 'installed') {
   setLandingStatus('Folder opener installed. You can sign in and use Open folder.');
 }
 
-const microsoftRedirectHandled = await completeMicrosoftSignIn();
-if (!microsoftRedirectHandled) await ensureBackendReady();
+const adminTransferHandled=await completeAdminTransfer();
+const microsoftRedirectHandled=adminTransferHandled?false:await completeMicrosoftSignIn();
+if (!adminTransferHandled&&!microsoftRedirectHandled) await ensureBackendReady();
 updateAuthUi();
 render();

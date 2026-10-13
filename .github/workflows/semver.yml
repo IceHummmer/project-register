@@ -1,0 +1,44 @@
+name: HH Project application version
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - version.json
+permissions:
+  contents: write
+concurrency:
+  group: hh-app-version-projects
+  cancel-in-progress: false
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pick semantic version change
+        env:
+          COMMIT_SUBJECT: ${{ github.event.head_commit.message }}
+        run: |
+          if [[ "$COMMIT_SUBJECT" =~ (BREAKING.CHANGE|^[a-z]+!:|\[major\]) ]]; then
+            echo "BUMP=major" >> "$GITHUB_ENV"
+          elif [[ "$COMMIT_SUBJECT" =~ (^feat:|\[minor\]) ]]; then
+            echo "BUMP=minor" >> "$GITHUB_ENV"
+          else
+            echo "BUMP=patch" >> "$GITHUB_ENV"
+          fi
+      - name: Increase version after each release
+        run: node scripts/bump-version.mjs "$BUMP"
+      - name: Commit display version
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add version.json
+          git commit -m "chore(release): bump HH application version [skip ci]"
+          git push origin HEAD:main
