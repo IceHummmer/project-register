@@ -944,7 +944,8 @@ function changeHistoryEntries(entries, query = '') {
       entry.dateTime, changeHistoryDate(entry.dateTime), entry.user,
       entry.orderNumber, entry.projectName, kind, entry.summary,
       ...entry.changes.flatMap(change => [
-        change.field, change.before, change.after
+        change.field, t(change.field), change.before, change.after,
+        translateHistoryValue(change.before, change.field), translateHistoryValue(change.after, change.field)
       ])
     ];
     return searchable.some(value => String(value ?? '').toLocaleLowerCase().includes(search));
@@ -952,22 +953,22 @@ function changeHistoryEntries(entries, query = '') {
 }
 
 function historyAction(entry) {
-  if (entry.changeType === 'ADD') return 'Created';
-  if (entry.changeType === 'DELETE') return 'Deleted';
-  return 'Updated';
+  if (entry.changeType === 'ADD') return t('Created');
+  if (entry.changeType === 'DELETE') return t('Deleted');
+  return t('Updated');
 }
 
 function historyChangeSummary(entry) {
-  if (entry.changeType === 'ADD') return 'New project';
-  if (entry.changeType === 'DELETE') return 'Project removed';
+  if (entry.changeType === 'ADD') return t('New project');
+  if (entry.changeType === 'DELETE') return t('Project removed');
   const count = entry.changes.length;
-  return count + (count === 1 ? ' field changed' : ' fields changed');
+  return getLanguage() === 'ru' ? `${count} ${count === 1 ? 'поле изменено' : 'полей изменено'}` : count + (count === 1 ? ' field changed' : ' fields changed');
 }
 
 function openChangeHistoryCard(entry) {
   const dialog = $('#changeHistoryDialog');
   const title = [entry.orderNumber, entry.projectName].filter(Boolean).join(' — ');
-  $('#changeHistoryDialogTitle').textContent = title || 'Project changes';
+  $('#changeHistoryDialogTitle').textContent = title || t('Project changes');
   $('#changeHistoryDialogMeta').textContent =
     changeHistoryDate(entry.dateTime) + ' · ' + (entry.user || 'Unknown user');
   const action = $('#changeHistoryDialogAction');
@@ -980,8 +981,8 @@ function openChangeHistoryCard(entry) {
   const summary = $('#changeHistoryDetailSummary');
   if (entry.changeType !== 'EDIT') {
     summary.textContent = entry.changeType === 'ADD'
-      ? 'This project was created.'
-      : 'This project was deleted.';
+      ? t('This project was created.')
+      : t('This project was deleted.');
     details.classList.add('hidden');
   } else {
     summary.textContent = historyChangeSummary(entry);
@@ -989,9 +990,9 @@ function openChangeHistoryCard(entry) {
     for (const change of entry.changes) {
       const tr = document.createElement('tr');
       const cells = [
-        [change.field || 'Field', 'history-detail-field'],
-        [changeHistoryValue(change.before, change.field), 'history-detail-before'],
-        [changeHistoryValue(change.after, change.field), 'history-detail-after']
+        [t(change.field || 'Field'), 'history-detail-field'],
+        [changeHistoryValue(translateHistoryValue(change.before, change.field), change.field), 'history-detail-before'],
+        [changeHistoryValue(translateHistoryValue(change.after, change.field), change.field), 'history-detail-after']
       ];
       for (const [value, className] of cells) {
         const td = document.createElement('td');
@@ -1011,7 +1012,7 @@ function changeHistoryListRow(entry) {
   tr.className = 'change-history-entry';
   tr.tabIndex = 0;
   tr.setAttribute('role', 'button');
-  tr.setAttribute('aria-label', 'View ' + historyAction(entry).toLowerCase() +
+  tr.setAttribute('aria-label', (getLanguage() === 'ru' ? 'Просмотреть: ' : 'View ') + historyAction(entry).toLowerCase() +
     ' history for project ' + [entry.orderNumber, entry.projectName].filter(Boolean).join(' '));
 
   const project = [entry.orderNumber, entry.projectName].filter(Boolean).join(' — ');
@@ -1168,9 +1169,11 @@ function renderAudit() {
 
   const summary = document.createElement('div');
   summary.className = 'change-history-summary';
-  summary.textContent = filtered.length + ' change records' +
-    (query.trim() ? ' matching search' : '') +
-    ' · ' + allEntries.length + ' total · Most recent first';
+  summary.textContent = getLanguage() === 'ru'
+    ? `${filtered.length} записей${query.trim() ? ' по запросу' : ''} · всего ${allEntries.length} · сначала новые`
+    : filtered.length + ' change records' +
+      (query.trim() ? ' matching search' : '') +
+      ' · ' + allEntries.length + ' total · Most recent first';
   container.append(summary);
 
   const wrap = document.createElement('div');
@@ -1181,7 +1184,7 @@ function renderAudit() {
   const headRow = document.createElement('tr');
   ['Date / time', 'Project', 'Changed by', 'Action', 'Details'].forEach(label => {
     const th = document.createElement('th');
-    th.textContent = label;
+    th.textContent = t(label);
     headRow.append(th);
   });
   head.append(headRow);
@@ -1199,18 +1202,18 @@ function renderAudit() {
     const empty = document.createElement('p');
     empty.className = 'change-history-empty';
     empty.textContent = query.trim()
-      ? 'No change records match your search.'
-      : 'No project change records have been recorded yet.';
+      ? t('No change records match your search.')
+      : t('No project change records have been recorded yet.');
     container.append(empty);
   } else if (filtered.length > changeHistoryVisibleRows) {
     const footer = document.createElement('div');
     footer.className = 'change-history-more';
     const info = document.createElement('span');
-    info.textContent = 'Showing ' + changeHistoryVisibleRows + ' of ' + filtered.length;
+    info.textContent = getLanguage() === 'ru' ? `Показано ${changeHistoryVisibleRows} из ${filtered.length}` : 'Showing ' + changeHistoryVisibleRows + ' of ' + filtered.length;
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'btn';
-    button.textContent = 'Show 250 more';
+    button.textContent = t('Show 250 more');
     button.addEventListener('click', () => {
       changeHistoryVisibleRows += 250;
       renderAudit();
