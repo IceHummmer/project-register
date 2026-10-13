@@ -40,7 +40,7 @@ const viewInfo = {
   refusal: ['Projects in Refusal', 'Rejected projects.'],
   overdue: ['Updates Required', 'Projects with overdue schedule information that needs review.'],
   customers: ['Customers', 'Customer contacts.'],
-  audit: ['Audit Log', 'Project change history.'],
+  audit: ['Change History', 'Who changed each project field, and what changed.'],
   users: ['Users & Access', 'Manage users, passwords and access rights.']
 };
 
@@ -705,29 +705,136 @@ function renderCustomers() {
   content.replaceChildren(wrap);
 }
 
-function shortProjectDiff(entry) {
-  const before = entry.before || {}; const after = entry.after || {};
-  const keys = [...new Set([...Object.keys(before), ...Object.keys(after)])];
-  const changed = keys.filter(k => JSON.stringify(before[k] ?? '') !== JSON.stringify(after[k] ?? ''));
-  return changed.slice(0, 8).map(k => `${k}: ${escapeText(before[k])} → ${escapeText(after[k])}`).join('\n') || '—';
+// The API supplies human-readable, allowlisted field changes. This view never
+// renders arbitrary before/after snapshots or internal project credentials.
+let changeHistoryVisibleRows = 250;
+
+function changeHistoryDate(raw) {
+  const value = new Date(raw);
+  if (!Number.isFinite(value.getTime())) return String(raw || '—');
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Helsinki', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+  }).formatToParts(value).map(part => [part.type, part.value]));
+  return `${parts.day}.${parts.month}.${parts.year} ${parts.hour}:${parts.minute}`;
+}
+
+function changeHistoryValue(value, field) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '—';
+  if (/^(Planned start|Planned end|Actual start|Actual end)$/.test(field) &&
+      /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [year, month, day] = raw.split('-');
+    return `${day}.${month}.${year}`;
+  }
+  return raw;
+}
+
+function changeHistoryRows(entries) {
+  const rows = [];
+  for (const entry of entries) {
+    if (!entry || !Array.isArray(entry.changes)) continue;
+    const base = {
+      dateTime: entry.dateTime || '', user: entry.user || '',
+      number: entry.orderNumber || '', project: entry.projectName || ''
+    };
+    if (entry.changes.length) {
+      for (const change of entry.changes) {
+        rows.push({ ...base, field: change.field || 'Field',
+          before: change.before ?? '', after: change.after ?? '' });
+      }
+    } else if (entry.changeType === 'ADD' || entry.changeType === 'DELETE') {
+      rows.push({ ...base, field: 'Project', before: entry.changeType === 'DELETE' ? entry.projectName : '',
+        after: entry.changeType === 'ADD' ? 'Created' : 'Deleted' });
+    }
+    // Ignore technical folder-sync events and edits without business changes.
+  }
+  return rows;
 }
 
 function renderAudit() {
   const content = $('#content');
   if (!state.user) return renderProjectTable();
-  const q = $('#searchInput').value.trim().toLowerCase();
-  const rows = state.audit.filter(x => !q || Object.values(x).some(v => String(v ?? '').toLowerCase().includes(q)));
-  const wrap = document.createElement('div'); wrap.className = 'table-wrap';
-  const table = document.createElement('table'); table.style.minWidth = '1200px';
-  table.innerHTML = '<thead><tr><th>Date / time</th><th>User</th><th>Type</th><th>Order No.</th><th>Project</th><th>Customer</th><th>Changes</th></tr></thead>';
-  const body = document.createElement('tbody');
-  rows.forEach(a => {
-    const tr=document.createElement('tr');
-    const vals=[a.dateTime,a.user,a.changeType,a.orderNumber,a.projectName,a.customer];
-    vals.forEach(v=>{const td=document.createElement('td');td.textContent=escapeText(v);tr.append(td);});
-    const diff=document.createElement('td');diff.className='audit-change';diff.textContent=shortProjectDiff(a);tr.append(diff);body.append(tr);
+
+  const allRows = changeHistoryRows(state.audit);
+  const q = $('#searchInput').value.trim().toLocaleLowerCase();
+  const filtered = q ? allRows.filter(item =>
+    [item.dateTime, item.user, item.number, item.project,
+      item.field, item.before, item.after].some(v => String(v ?? '').toLocaleLowerCase().includes(q))
+  ) : allRows;
+
+  const container = document.createElement('div');
+  container.className = 'change-history-container';
+
+  const summary = document.createElement('div');
+  summary.className = 'change-history-summary';
+  summary.textContent = `${filtered.length} field changes` +
+    (q ? ' matching search' : '') + ' · Most recent first';
+  container.append(summary);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'table-wrap change-history-wrap';
+  const table = document.createElement('table');
+  table.className = 'change-history-table';
+  const head = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  ['Date / time', 'Changed by', 'Project', 'Field', 'Before', 'After'].forEach(label => {
+    const th = document.createElement('th');
+    th.textContent = label;
+    headRow.append(th);
   });
-  table.append(body); wrap.append(table); content.replaceChildren(wrap);
+  head.append(headRow);
+  table.append(head);
+  const body = document.createElement('tbody');
+
+  for (const item of filtered.slice(0, changeHistoryVisibleRows)) {
+    const tr = document.createElement('tr');
+    const values = [
+      changeHistoryDate(item.dateTime), item.user,
+      [item.number, item.project].filter(Boolean).join(' — '),
+      item.field, changeHistoryValue(item.before, item.field),
+      changeHistoryValue(item.after, item.field)
+    ];
+    values.forEach((value, index) => {
+      const td = document.createElement('td');
+      td.textContent = value;
+      if (index === 2) td.className = 'history-project';
+      if (index === 3) td.className = 'history-field';
+      if (index >= 4) {
+        td.className = index === 4 ? 'history-before' : 'history-after';
+        if (value === '—') td.classList.add('history-empty');
+      }
+      if (index >= 2) td.title = value;
+      tr.append(td);
+    });
+    body.append(tr);
+  }
+  table.append(body);
+  wrap.append(table);
+  container.append(wrap);
+
+  if (!filtered.length) {
+    const empty = document.createElement('p');
+    empty.className = 'change-history-empty';
+    empty.textContent = q ? 'No changes match your search.' : 'No project field changes have been recorded yet.';
+    container.append(empty);
+  } else if (filtered.length > changeHistoryVisibleRows) {
+    const footer = document.createElement('div');
+    footer.className = 'change-history-more';
+    const info = document.createElement('span');
+    info.textContent = `Showing ${changeHistoryVisibleRows} of ${filtered.length}`;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn';
+    button.textContent = 'Show 250 more';
+    button.addEventListener('click', () => {
+      changeHistoryVisibleRows += 250;
+      renderAudit();
+    });
+    footer.append(info, button);
+    container.append(footer);
+  }
+  content.replaceChildren(container);
 }
 
 function makeRoleChecklist(values = [], { includeAdmin = false, lockAdmin = false } = {}) {
@@ -1348,10 +1455,23 @@ async function openProjectEditor(project = null) {
   let notice = '';
   try {
     if (project && !readOnly) {
-      const result = await request(`/api/projects/${encodeURIComponent(project.orderNumber)}/edit-lock`, {
-        method: 'POST'
-      });
+      const lockUrl = `/api/projects/${encodeURIComponent(project.orderNumber)}/edit-lock`;
+      let result = await request(lockUrl, { method: 'POST', body: {} });
       project = result.project || project;
+      if (!result.acquired && result.sameAccount) {
+        const confirmed = confirm(
+          'You are already editing this project in another window or on another device.\\n\\n' +
+          'Switch editing to this device? The previous window will become read-only and ' +
+          'any unsaved changes there will NOT be transferred.'
+        );
+        if (confirmed) {
+          result = await request(lockUrl, { method: 'POST', body: { takeOver: true } });
+          project = result.project || project;
+        } else {
+          notice = 'This project is open for editing under your account on another device. ' +
+            'Close that editor, or reopen this project and confirm switching devices.';
+        }
+      }
       if (result.acquired) {
         projectEditLease = {
           number: String(project.orderNumber), token: result.token, revision: result.revision
@@ -1359,8 +1479,12 @@ async function openProjectEditor(project = null) {
         startProjectEditRefresh(projectEditLease);
       } else {
         readOnly = true;
-        notice = 'This project is being edited by ' +
-          (result.lockedBy || 'another user') + '. It is available in read-only mode until they close the editor.';
+        if (!notice) {
+          notice = result.sameAccount
+            ? 'This project is open under your account in another session. Close it there to edit here.'
+            : 'This project is being edited by ' + (result.lockedBy || 'another user') +
+              '. It is available in read-only mode until they close the editor.';
+        }
       }
     }
   } catch (error) {
