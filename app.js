@@ -144,6 +144,7 @@ async function completeMicrosoftSignIn() {
   cleanMicrosoftAuthParams();
 
   if (authError) {
+    document.documentElement.removeAttribute('data-module-sso');
     if(moduleOrigin()&&/not authorized|access denied|no access|not permitted/i.test(authError)){
       showProjectModuleDenied();
     }else{
@@ -167,6 +168,7 @@ async function completeMicrosoftSignIn() {
     if(moduleOrigin())sessionStorage.removeItem('hhProjectIncomingModule');
     showNotice(`Signed in as ${state.user.username}.`);
   } catch (error) {
+    document.documentElement.removeAttribute('data-module-sso');
     clearSession();
     if(moduleOrigin()&&/not authorized|denied|forbidden/i.test(error.message))showProjectModuleDenied();
     else showNotice(error.message, 'error');
@@ -210,6 +212,7 @@ function performMicrosoftRedirect() {
 }
 
 function showProjectModuleDenied(){
+ document.documentElement.removeAttribute('data-module-sso');
  const panel=$('#projectModuleDenied');
  panel?.classList.remove('hidden');
  $('#loginLanding').classList.remove('hidden');
@@ -379,13 +382,17 @@ async function refreshPresence() {
 
 function updateAuthUi() {
   const loggedIn = Boolean(state.user);
+  if(loggedIn)document.documentElement.removeAttribute('data-module-sso');
   $('#loginLanding').classList.toggle('hidden', loggedIn);
   $('#appShell').classList.toggle('hidden', !loggedIn);
   $('#authLoggedOut').classList.toggle('hidden', loggedIn);
   $('#authLoggedIn').classList.toggle('hidden', !loggedIn);
   setText($('#authUserName'), state.user?.username || '');
   setText($('#authUserRole'), rolesLabel(state.user));
-  setText($('#authBtn'), loggedIn ? state.user.username : t('Sign in'));
+  setText($('#authBtn'),loggedIn?t('Sign out'):t('Sign in'));
+  $('#authBtn').classList.toggle('btn-dark',!loggedIn);
+  $('#projectIdentity').classList.toggle('hidden',!loggedIn);
+  setText($('#projectIdentity'),loggedIn?state.user.username:'');
   renderOtherActiveUsers();
   $('#usersTab').classList.toggle('hidden', !state.user?.canManageUsers);
   $('#systemMessagesTab').classList.toggle('hidden', !state.user?.canManageUsers);
@@ -455,6 +462,7 @@ async function restoreSession() {
   state.backendReady = false;
   state.backendWakeFailed = true;
   state.microsoftSignInQueued = false;
+  document.documentElement.removeAttribute('data-module-sso');
   updateLandingMicrosoftButton();
   setLandingStatus('Secure server is taking longer than usual. Click Try sign in again.', true);
   return false;
@@ -482,6 +490,8 @@ async function loadCoreData() {
   if (state.view === 'users' && state.user.canManageUsers) await loadUsers();
   if (state.user.canManageUsers) void loadSystemMessages();
   render();
+  // Wake the other Render service in the background; never block this screen.
+  void fetch('https://hh-warehouse-api.onrender.com/api/health',{mode:'no-cors',cache:'no-store'}).catch(()=>{});
   void refreshPresence();
 }
 
@@ -2738,12 +2748,19 @@ $('#updateRequestsDialog').addEventListener('cancel', event => {
   if (bulkUpdateMail.sending) event.preventDefault();
 });
 $('#manageCustomersBtn').addEventListener('click',()=>openCustomers());
-$('#projectModuleSelect').addEventListener('change',event=>{
- if(event.target.value==='warehouse')navigateWarehouseModule();
- event.target.value='projects';
-});
+$('#projectModuleButton').addEventListener('click',navigateWarehouseModule);
 $('#projectModuleReturn').addEventListener('click',()=>{window.location.assign(WAREHOUSE_REGISTRY_URL);});
-$('#authBtn').addEventListener('click',()=>$('#authDialog').showModal());
+async function logOutProject(){
+ releaseProjectEditorLease();
+ try{await request('/api/auth/logout',{method:'POST'});}catch{}
+ $('#authDialog').close();
+ clearSession({backendReady:true});
+ showNotice('Signed out.');
+}
+$('#authBtn').addEventListener('click',()=>{
+ if(state.user){void logOutProject();return;}
+ $('#authDialog').showModal();
+});
 $('#microsoftLoginBtn').addEventListener('click', startMicrosoftSignIn);
 $('#landingMicrosoftLoginBtn').addEventListener('click', startMicrosoftSignIn);
 $('#landingEmergencyForm').addEventListener('submit', async e => {
@@ -2798,11 +2815,7 @@ $('#authForm').addEventListener('submit', async e => {
     endBusy();
   }
 });
-$('#logoutBtn').addEventListener('click',async()=>{
-  releaseProjectEditorLease();
-  try{await request('/api/auth/logout',{method:'POST'});}catch{}
-  $('#authDialog').close();clearSession({ backendReady: true });showNotice('Signed out.');
-});
+$('#logoutBtn').addEventListener('click',()=>{void logOutProject();});
 $('#projectForm').addEventListener('submit',e=>{e.preventDefault();saveProject();});
 $('#projectDialog').addEventListener('close', releaseProjectEditorLease);
 $('#deleteProjectBtn').addEventListener('click',deleteProject);
@@ -2841,11 +2854,31 @@ const openerInstallStatus = processOpenerInstallMarker();
 // Capture original English markup before initial render. Translation does not
 // touch stored business data, free-text inputs or Microsoft user identities.
 initStaticTranslations();
+const loginLanguageSelect=$('#loginLanguageSelect');
+if(loginLanguageSelect){
+ loginLanguageSelect.value=getLanguage();
+ loginLanguageSelect.addEventListener('change',event=>{
+  setLanguage(event.target.value);
+  const main=$('#languageSelect');if(main)main.value=getLanguage();
+  loginLanguageSelect.value=getLanguage();
+  updateLandingMicrosoftButton();
+  updateAuthUi();
+  render();
+ });
+}
+$('#projectAdminToggle').addEventListener('click',()=>{
+ const group=$('#projectAdminForm'),button=$('#projectAdminToggle');
+ const showing=group.classList.contains('hidden');
+ group.classList.toggle('hidden',!showing);
+ button.setAttribute('aria-expanded',String(showing));
+ if(showing)$('#landingPinInput').focus();
+});
 const languageSelect = $('#languageSelect');
 if (languageSelect) {
   languageSelect.value = getLanguage();
   languageSelect.addEventListener('change', event => {
     setLanguage(event.target.value);
+    if(loginLanguageSelect)loginLanguageSelect.value=getLanguage();
     const form = $('#projectForm')?.elements;
     if (form) {
       for (const key of ['status', 'activityType']) {
