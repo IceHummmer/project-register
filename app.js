@@ -9,6 +9,8 @@ const state = {
   lookups: {},
   audit: [],
   users: [],
+  systemMessages: [],
+  systemUnreadCount: 0,
   oneDrive: { configured: false, connected: false },
   view: 'all',
   selectedNumber: null,
@@ -41,7 +43,8 @@ const viewInfo = {
   overdue: ['Updates Required', 'Projects with overdue schedule information that needs review.'],
   customers: ['Customers', 'Customer contacts.'],
   audit: ['Change History', 'Who changed each project field, and what changed.'],
-  users: ['Users & Access', 'Manage users, passwords and access rights.']
+  users: ['Users & Access', 'Manage users, passwords and access rights.'],
+  system: ['System messages', 'System warnings, delivery failures and operational notifications.']
 };
 
 const projectColumns = [
@@ -354,6 +357,12 @@ function updateAuthUi() {
   setText($('#authBtn'), loggedIn ? state.user.username : 'Sign in');
   renderOtherActiveUsers();
   $('#usersTab').classList.toggle('hidden', !state.user?.canManageUsers);
+  $('#systemMessagesTab').classList.toggle('hidden', !state.user?.canManageUsers);
+  const unread = $('#systemMessagesUnreadCount');
+  if (unread) {
+    unread.textContent = String(state.systemUnreadCount || 0);
+    unread.classList.toggle('hidden', !state.systemUnreadCount);
+  }
 }
 
 function isWakeError(error) {
@@ -440,6 +449,7 @@ async function loadCoreData() {
   lastCoreDataRefreshAt = Date.now();
   if (state.view === 'audit') await loadAudit();
   if (state.view === 'users' && state.user.canManageUsers) await loadUsers();
+  if (state.user.canManageUsers) void loadSystemMessages();
   render();
   void refreshPresence();
 }
@@ -474,6 +484,19 @@ async function refreshCoreDataIfChanged() {
 async function loadAudit() {
   const r = await request('/api/audit');
   state.audit = r.auditLog || [];
+}
+
+async function loadSystemMessages({ refreshView = true } = {}) {
+  if (!state.user?.canManageUsers) return;
+  const response = await request('/api/system-messages', { cache: 'no-store' });
+  state.systemMessages = response.messages || [];
+  state.systemUnreadCount = Number(response.unreadCount || 0);
+  const badge = $('#systemMessagesUnreadCount');
+  if (badge) {
+    badge.textContent = String(state.systemUnreadCount);
+    badge.classList.toggle('hidden', !state.systemUnreadCount);
+  }
+  if (refreshView && state.view === 'system') renderSystemMessages();
 }
 
 async function loadUsers() {
@@ -574,6 +597,7 @@ function columnLayoutKey(view = state.view) {
   if (view === 'customers') return canEditCustomers() ? 'customers-edit' : 'customers-view';
   if (view === 'audit') return 'history';
   if (view === 'users') return 'users';
+  if (view === 'system') return 'system-inbox';
   return null;
 }
 
@@ -920,6 +944,124 @@ function changeHistoryRows(entries) {
     // Ignore technical folder-sync events and edits without business changes.
   }
   return rows;
+}
+
+function formatSystemTime(raw) {
+  const date = new Date(raw);
+  return Number.isFinite(date.getTime())
+    ? new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Helsinki',
+      dateStyle: 'short', timeStyle: 'short' }).format(date)
+    : String(raw || '—');
+}
+
+function systemMessageRow(item) {
+  const tr = document.createElement('tr');
+  tr.className = 'system-inbox-row' + (!item.readAt ? ' system-unread' : '');
+  tr.tabIndex = 0;
+  tr.setAttribute('role', 'button');
+  tr.setAttribute('aria-label', 'Open system message: ' + item.subject);
+  const values = [
+    !item.readAt ? '● New' : 'Read',
+    formatSystemTime(item.at),
+    item.type || 'SYSTEM',
+    item.subject || '',
+    item.project || '—'
+  ];
+  for (let i = 0; i < values.length; i++) {
+    const td = document.createElement('td');
+    td.textContent = values[i];
+    if (i === 0) td.className = 'system-inbox-status';
+    if (i === 3) td.className = 'system-inbox-subject';
+    tr.append(td);
+  }
+  tr.addEventListener('click', () => { void openSystemMessage(item); });
+  tr.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault(); void openSystemMessage(item);
+    }
+  });
+  return tr;
+}
+
+function renderSystemMessages() {
+  const content = $('#content');
+  if (!state.user?.canManageUsers) {
+    content.replaceChildren();
+    return;
+  }
+  const q = $('#searchInput').value.trim().toLowerCase();
+  const rows = state.systemMessages.filter(x => !q || [
+    x.at, x.category, x.type, x.subject, x.details, x.project
+  ].some(v => String(v || '').toLowerCase().includes(q)));
+
+  const container = document.createElement('div');
+  container.className = 'system-inbox';
+  const toolbar = document.createElement('div');
+  toolbar.className = 'system-inbox-toolbar';
+  const count = document.createElement('span');
+  count.textContent = state.systemUnreadCount + ' unread · ' + state.systemMessages.length + ' messages';
+  const test = document.createElement('button');
+  test.className = 'btn';
+  test.type = 'button';
+  test.textContent = 'Send test notification';
+  test.addEventListener('click', async () => {
+    test.disabled = true;
+    try {
+      await request('/api/system-messages/test', { method: 'POST', body: {} });
+      await loadSystemMessages();
+      showNotice('A test notification was added to System messages.');
+    } catch (error) { showNotice(error.message, 'error'); }
+    finally { test.disabled = false; }
+  });
+  toolbar.append(count, test);
+  container.append(toolbar);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'table-wrap system-inbox-wrap';
+  const table = document.createElement('table');
+  table.className = 'system-inbox-table';
+  const head = document.createElement('thead');
+  const headings = document.createElement('tr');
+  ['Status', 'Date / time', 'Type', 'Message', 'Project'].forEach(label => {
+    const th = document.createElement('th');
+    th.textContent = label;
+    headings.append(th);
+  });
+  head.append(headings); table.append(head);
+  const body = document.createElement('tbody');
+  rows.forEach(item => body.append(systemMessageRow(item)));
+  table.append(body);
+  wrap.append(table); container.append(wrap);
+  if (!rows.length) {
+    const empty = document.createElement('div');
+    empty.className = 'change-history-empty';
+    empty.textContent = q ? 'No matching system messages.' : 'No system messages yet.';
+    container.append(empty);
+  }
+  content.replaceChildren(container);
+  makeColumnsResizable(table);
+}
+
+async function openSystemMessage(item) {
+  const dialog = $('#systemMessageDialog');
+  $('#systemMessageSubject').textContent = item.subject || 'System message';
+  $('#systemMessageMetadata').textContent =
+    formatSystemTime(item.at) + ' · ' + (item.category || 'SYSTEM') +
+    ' · ' + (item.type || 'ERROR') + (item.project ? ' · Project ' + item.project : '');
+  $('#systemMessageDetails').textContent = item.details || 'No additional details.';
+  dialog.showModal();
+  if (item.readAt) return;
+  try {
+    const r = await request('/api/system-messages/' + encodeURIComponent(item.id) + '/read', {
+      method: 'POST', body: {}
+    });
+    item.readAt = r.message?.readAt || new Date().toISOString();
+    state.systemUnreadCount = Math.max(0, state.systemUnreadCount - 1);
+    updateAuthUi();
+    if (state.view === 'system') renderSystemMessages();
+  } catch (error) {
+    showNotice('Could not mark system message as read: ' + error.message, 'error');
+  }
 }
 
 function renderAudit() {
@@ -1389,6 +1531,7 @@ function render() {
   if (state.view === 'customers') renderCustomers();
   else if (state.view === 'audit') renderAudit();
   else if (state.view === 'users') renderUsers();
+  else if (state.view === 'system') renderSystemMessages();
   else renderProjectTable();
 }
 
@@ -2241,13 +2384,14 @@ function openFolderWeb(project = projectForOpenFolder()) {
 }
 
 async function activateView(view) {
-  if (view === 'users' && !state.user?.canManageUsers) return;
+  if ((view === 'users' || view === 'system') && !state.user?.canManageUsers) return;
   state.view=view; state.selectedNumber=null;
   $$('.tab').forEach(t=>t.classList.toggle('active',t.dataset.view===view));
   $('#searchInput').value='';
   try {
     if(view==='audit'&&state.user) await loadAudit();
     if(view==='users'&&state.user?.canManageUsers) await loadUsers();
+    if(view==='system'&&state.user?.canManageUsers) await loadSystemMessages({ refreshView: false });
     render();
   } catch(e) { showNotice(e.message,'error'); }
 }
@@ -2261,7 +2405,7 @@ $('#resetColumnWidthsBtn')?.addEventListener('click', resetColumnWidths);
 
 // Desktop: Ctrl + mouse wheel changes table zoom, without scaling the page.
 $('.workspace')?.addEventListener('wheel', event => {
-  if (!event.ctrlKey || !state.user || !['all','plan','progress','completed','refusal','overdue','audit','customers','users'].includes(state.view)) return;
+  if (!event.ctrlKey || !state.user || !['all','plan','progress','completed','refusal','overdue','audit','customers','users','system'].includes(state.view)) return;
   if (!event.deltaY) return;
   event.preventDefault();
   setTableZoom(state.tableZoom + (event.deltaY < 0 ? 10 : -10));
@@ -2382,6 +2526,13 @@ window.setInterval(() => {
   void refreshCoreDataIfChanged();
 }, 120000);
 window.setInterval(() => { void refreshPresence(); }, 8000);
+window.setInterval(() => {
+  if (state.user?.canManageUsers) {
+    void loadSystemMessages().catch(error =>
+      console.warn('System notifications refresh failed:', error.message));
+  }
+}, 60000);
+$('#closeSystemMessageDialog')?.addEventListener('click', () => $('#systemMessageDialog').close());
 $('#searchInput').addEventListener('input',render);
 $('#editableOnlyToggle').addEventListener('change', e => {
   state.editableOnly = Boolean(e.target.checked);
