@@ -5,6 +5,13 @@ let language = 'en';
 try { language = localStorage.getItem(STORAGE_KEY) === 'ru' ? 'ru' : 'en'; } catch {}
 
 const RU = Object.freeze({
+  'HELSINGIN HITSAUS · PROJECT CONTROL':'HELSINGIN HITSAUS · УПРАВЛЕНИЕ ПРОЕКТАМИ',
+  'HELSINGIN HITSAUS':'HELSINGIN HITSAUS',
+  'Manage projects, customers, project status and documents in one workspace.':'Управление проектами, заказчиками, статусами и документами в единой системе.',
+  'Administrator login':'Вход администратора',
+  'Connecting to Project Register…':'Подключение к Реестру проектов…',
+  'Checking Microsoft 365 access and loading data.':'Проверка доступа Microsoft 365 и загрузка данных.',
+  'Warehouse Register':'Реестр склада',
   'Module':'Модуль',
   'Warehouse Register':'Реестр склада',
   'Access to Project Register is not granted':'Нет доступа к Реестру проектов',
