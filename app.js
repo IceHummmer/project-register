@@ -924,26 +924,113 @@ function changeHistoryValue(value, field) {
   return raw;
 }
 
-function changeHistoryRows(entries) {
-  const rows = [];
-  for (const entry of entries) {
-    if (!entry || !Array.isArray(entry.changes)) continue;
-    const base = {
-      dateTime: entry.dateTime || '', user: entry.user || '',
-      number: entry.orderNumber || '', project: entry.projectName || ''
-    };
-    if (entry.changes.length) {
-      for (const change of entry.changes) {
-        rows.push({ ...base, field: change.field || 'Field',
-          before: change.before ?? '', after: change.after ?? '' });
+// Each Audit Log entry is already one project operation. Keep it intact
+// instead of expanding each changed field into a separate list row.
+function changeHistoryEntries(entries, query = '') {
+  const search = String(query || '').trim().toLocaleLowerCase();
+  return (entries || []).filter(entry => {
+    if (!entry || !Array.isArray(entry.changes)) return false;
+    const kind = String(entry.changeType || '').toUpperCase();
+    // Folder synchronization and technical/no-op saves are not business changes.
+    if (!['EDIT', 'ADD', 'DELETE'].includes(kind)) return false;
+    if (kind === 'EDIT' && !entry.changes.length) return false;
+    if (!search) return true;
+    const searchable = [
+      entry.dateTime, changeHistoryDate(entry.dateTime), entry.user,
+      entry.orderNumber, entry.projectName, kind, entry.summary,
+      ...entry.changes.flatMap(change => [
+        change.field, change.before, change.after
+      ])
+    ];
+    return searchable.some(value => String(value ?? '').toLocaleLowerCase().includes(search));
+  });
+}
+
+function historyAction(entry) {
+  if (entry.changeType === 'ADD') return 'Created';
+  if (entry.changeType === 'DELETE') return 'Deleted';
+  return 'Updated';
+}
+
+function historyChangeSummary(entry) {
+  if (entry.changeType === 'ADD') return 'New project';
+  if (entry.changeType === 'DELETE') return 'Project removed';
+  const count = entry.changes.length;
+  return count + (count === 1 ? ' field changed' : ' fields changed');
+}
+
+function openChangeHistoryCard(entry) {
+  const dialog = $('#changeHistoryDialog');
+  const title = [entry.orderNumber, entry.projectName].filter(Boolean).join(' — ');
+  $('#changeHistoryDialogTitle').textContent = title || 'Project changes';
+  $('#changeHistoryDialogMeta').textContent =
+    changeHistoryDate(entry.dateTime) + ' · ' + (entry.user || 'Unknown user');
+  const action = $('#changeHistoryDialogAction');
+  action.textContent = historyAction(entry);
+  action.dataset.action = entry.changeType || 'EDIT';
+
+  const body = $('#changeHistoryDetailsBody');
+  body.replaceChildren();
+  const details = $('#changeHistoryDetailsWrap');
+  const summary = $('#changeHistoryDetailSummary');
+  if (entry.changeType !== 'EDIT') {
+    summary.textContent = entry.changeType === 'ADD'
+      ? 'This project was created.'
+      : 'This project was deleted.';
+    details.classList.add('hidden');
+  } else {
+    summary.textContent = historyChangeSummary(entry);
+    details.classList.remove('hidden');
+    for (const change of entry.changes) {
+      const tr = document.createElement('tr');
+      const cells = [
+        [change.field || 'Field', 'history-detail-field'],
+        [changeHistoryValue(change.before, change.field), 'history-detail-before'],
+        [changeHistoryValue(change.after, change.field), 'history-detail-after']
+      ];
+      for (const [value, className] of cells) {
+        const td = document.createElement('td');
+        td.textContent = value;
+        td.className = className;
+        if (value === '—') td.classList.add('history-empty');
+        tr.append(td);
       }
-    } else if (entry.changeType === 'ADD' || entry.changeType === 'DELETE') {
-      rows.push({ ...base, field: 'Project', before: entry.changeType === 'DELETE' ? entry.projectName : '',
-        after: entry.changeType === 'ADD' ? 'Created' : 'Deleted' });
+      body.append(tr);
     }
-    // Ignore technical folder-sync events and edits without business changes.
   }
-  return rows;
+  dialog.showModal();
+}
+
+function changeHistoryListRow(entry) {
+  const tr = document.createElement('tr');
+  tr.className = 'change-history-entry';
+  tr.tabIndex = 0;
+  tr.setAttribute('role', 'button');
+  tr.setAttribute('aria-label', 'View ' + historyAction(entry).toLowerCase() +
+    ' history for project ' + [entry.orderNumber, entry.projectName].filter(Boolean).join(' '));
+
+  const project = [entry.orderNumber, entry.projectName].filter(Boolean).join(' — ');
+  const values = [
+    [changeHistoryDate(entry.dateTime), 'history-list-date'],
+    [project || '—', 'history-project'],
+    [entry.user || '—', 'history-list-user'],
+    [historyAction(entry), 'history-list-action'],
+    [historyChangeSummary(entry), 'history-list-summary']
+  ];
+  for (const [value, className] of values) {
+    const td = document.createElement('td');
+    td.textContent = value;
+    td.className = className;
+    td.title = value;
+    tr.append(td);
+  }
+  tr.addEventListener('click', () => openChangeHistoryCard(entry));
+  tr.addEventListener('keydown', event => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    openChangeHistoryCard(entry);
+  });
+  return tr;
 }
 
 function formatSystemTime(raw) {
@@ -1068,20 +1155,17 @@ function renderAudit() {
   const content = $('#content');
   if (!state.user) return renderProjectTable();
 
-  const allRows = changeHistoryRows(state.audit);
-  const q = $('#searchInput').value.trim().toLocaleLowerCase();
-  const filtered = q ? allRows.filter(item =>
-    [item.dateTime, item.user, item.number, item.project,
-      item.field, item.before, item.after].some(v => String(v ?? '').toLocaleLowerCase().includes(q))
-  ) : allRows;
-
+  const query = $('#searchInput').value;
+  const allEntries = changeHistoryEntries(state.audit);
+  const filtered = changeHistoryEntries(state.audit, query);
   const container = document.createElement('div');
   container.className = 'change-history-container';
 
   const summary = document.createElement('div');
   summary.className = 'change-history-summary';
-  summary.textContent = `${filtered.length} field changes` +
-    (q ? ' matching search' : '') + ' · Most recent first';
+  summary.textContent = filtered.length + ' change records' +
+    (query.trim() ? ' matching search' : '') +
+    ' · ' + allEntries.length + ' total · Most recent first';
   container.append(summary);
 
   const wrap = document.createElement('div');
@@ -1090,36 +1174,17 @@ function renderAudit() {
   table.className = 'change-history-table';
   const head = document.createElement('thead');
   const headRow = document.createElement('tr');
-  ['Date / time', 'Changed by', 'Project', 'Field', 'Before', 'After'].forEach(label => {
+  ['Date / time', 'Project', 'Changed by', 'Action', 'Details'].forEach(label => {
     const th = document.createElement('th');
     th.textContent = label;
     headRow.append(th);
   });
   head.append(headRow);
   table.append(head);
-  const body = document.createElement('tbody');
 
-  for (const item of filtered.slice(0, changeHistoryVisibleRows)) {
-    const tr = document.createElement('tr');
-    const values = [
-      changeHistoryDate(item.dateTime), item.user,
-      [item.number, item.project].filter(Boolean).join(' — '),
-      item.field, changeHistoryValue(item.before, item.field),
-      changeHistoryValue(item.after, item.field)
-    ];
-    values.forEach((value, index) => {
-      const td = document.createElement('td');
-      td.textContent = value;
-      if (index === 2) td.className = 'history-project';
-      if (index === 3) td.className = 'history-field';
-      if (index >= 4) {
-        td.className = index === 4 ? 'history-before' : 'history-after';
-        if (value === '—') td.classList.add('history-empty');
-      }
-      if (index >= 2) td.title = value;
-      tr.append(td);
-    });
-    body.append(tr);
+  const body = document.createElement('tbody');
+  for (const entry of filtered.slice(0, changeHistoryVisibleRows)) {
+    body.append(changeHistoryListRow(entry));
   }
   table.append(body);
   wrap.append(table);
@@ -1128,13 +1193,15 @@ function renderAudit() {
   if (!filtered.length) {
     const empty = document.createElement('p');
     empty.className = 'change-history-empty';
-    empty.textContent = q ? 'No changes match your search.' : 'No project field changes have been recorded yet.';
+    empty.textContent = query.trim()
+      ? 'No change records match your search.'
+      : 'No project change records have been recorded yet.';
     container.append(empty);
   } else if (filtered.length > changeHistoryVisibleRows) {
     const footer = document.createElement('div');
     footer.className = 'change-history-more';
     const info = document.createElement('span');
-    info.textContent = `Showing ${changeHistoryVisibleRows} of ${filtered.length}`;
+    info.textContent = 'Showing ' + changeHistoryVisibleRows + ' of ' + filtered.length;
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'btn';
@@ -2533,6 +2600,7 @@ window.setInterval(() => {
   }
 }, 60000);
 $('#closeSystemMessageDialog')?.addEventListener('click', () => $('#systemMessageDialog').close());
+$('#closeChangeHistoryDialog')?.addEventListener('click', () => $('#changeHistoryDialog').close());
 $('#searchInput').addEventListener('input',render);
 $('#editableOnlyToggle').addEventListener('change', e => {
   state.editableOnly = Boolean(e.target.checked);
