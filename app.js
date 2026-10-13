@@ -353,12 +353,22 @@ function renderOtherActiveUsers() {
   wrap.classList.toggle('hidden', !others.length);
   wrap.parentElement?.classList.toggle('has-online-peers', Boolean(others.length));
   wrap.replaceChildren();
-  for (const username of others) {
+  wrap.title = others.join(', ');
+  // Keep narrow phone headers readable when several colleagues are online.
+  const compact = window.matchMedia('(max-width: 620px)').matches;
+  for (const username of (compact ? others.slice(0,1) : others)) {
     const chip = document.createElement('span');
     chip.className = 'online-peer';
     chip.textContent = username;
-    chip.title = t('Currently active on Project Register');
+    chip.title = t('Currently active on Project Register') + ': ' + username;
     wrap.append(chip);
+  }
+  if(compact && others.length > 1){
+    const more=document.createElement('span');
+    more.className='online-peer online-peer-count';
+    more.textContent='+'+(others.length-1);
+    more.title=others.slice(1).join(', ');
+    wrap.append(more);
   }
 }
 
@@ -2697,6 +2707,7 @@ window.setInterval(() => {
   void refreshCoreDataIfChanged();
 }, 120000);
 window.setInterval(() => { void refreshPresence(); }, 8000);
+window.addEventListener('resize',renderOtherActiveUsers);
 window.setInterval(() => {
   if (state.user?.canManageUsers) {
     void loadSystemMessages().catch(error =>

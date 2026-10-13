@@ -66,12 +66,14 @@
     <header class="topbar">
       <div class="project-brand"><img class="hh-logo project-hh-logo" src="/hh-logo.svg" alt="Helsingin Hitsaus" /><div><div class="eyebrow">HELSINGIN HITSAUS</div><h1>Project Register</h1></div></div>
       <div class="topbar-actions">
-        <button id="projectModuleButton" class="btn hh-module-button" type="button">Warehouse Register <span aria-hidden="true">→</span></button>
+        <div class="hh-module-controls">
+          <div id="otherActiveUsers" class="other-active-users hidden" aria-label="Other users currently online" aria-live="polite"></div>
+          <button id="projectModuleButton" class="btn hh-module-button" type="button">Warehouse Register <span aria-hidden="true">→</span></button>
+        </div>
         <button id="installAppBtn" type="button" class="btn install-app-btn" title="Install Project Register as an app on this computer">
           <span class="install-app-icon" aria-hidden="true">↧</span>
           <span>Install app</span>
         </button>
-        <div id="otherActiveUsers" class="other-active-users hidden" aria-label="Other users currently online" aria-live="polite"></div>
         <label class="language-switch" for="languageSelect">
           <span id="languageSelectLabel">Language</span>
           <select id="languageSelect" aria-label="Interface language">
