@@ -1556,8 +1556,8 @@ function renderUsers() {
       del.addEventListener('click', async () => {
         if (savingUserAccess) return;
         const warning = userAccessDrafts.size
-          ? 'Unsaved changes will remain pending for other users.\\n\\n' : '';
-        if (!confirm(warning + `Delete user ${u.username}?`)) return;
+          ? (getLanguage() === 'ru' ? 'Несохранённые изменения других пользователей останутся в ожидании.\n\n' : 'Unsaved changes will remain pending for other users.\\n\\n') : '';
+        if (!confirm(warning + (getLanguage() === 'ru' ? `Удалить пользователя ${u.username}?` : `Delete user ${u.username}?`))) return;
 
         try {
           await request(`/api/users/${encodeURIComponent(u.username)}`, { method: 'DELETE' });
@@ -1852,8 +1852,10 @@ function projectEditorLockLost(reason) {
   stopProjectEditRefresh();
   projectEditLease = null;
   const notice = $('#projectLockNotice');
-  notice.textContent = 'Editing is no longer available. ' + reason +
-    ' Your unsaved values remain visible; close and reopen the project before editing again.';
+  notice.textContent = getLanguage() === 'ru'
+    ? `Редактирование больше недоступно: ${reason}. Несохранённые значения остались в форме. Закройте проект и откройте его снова.`
+    : 'Editing is no longer available. ' + reason +
+      ' Your unsaved values remain visible; close and reopen the project before editing again.';
   notice.classList.remove('hidden');
   const project = state.projects.find(p => p.orderNumber === state.editingNumber);
   setProjectDialogMode({ project: project || { orderNumber: state.editingNumber }, readOnly: true });
@@ -1892,17 +1894,19 @@ async function openProjectEditor(project = null) {
       let result = await request(lockUrl, { method: 'POST', body: {} });
       project = result.project || project;
       if (!result.acquired && result.sameAccount) {
-        const confirmed = confirm(
-          'You are already editing this project in another window or on another device.\\n\\n' +
-          'Switch editing to this device? The previous window will become read-only and ' +
-          'any unsaved changes there will NOT be transferred.'
-        );
+        const confirmed = confirm(getLanguage() === 'ru'
+          ? 'Этот проект уже открыт для изменения на другом устройстве под вашей учётной записью.\n\nПереключить редактирование на это устройство? На предыдущем устройстве останется только просмотр, несохранённые изменения НЕ будут перенесены.'
+          : 'You are already editing this project in another window or on another device.\\n\\n' +
+            'Switch editing to this device? The previous window will become read-only and ' +
+            'any unsaved changes there will NOT be transferred.');
         if (confirmed) {
           result = await request(lockUrl, { method: 'POST', body: { takeOver: true } });
           project = result.project || project;
         } else {
-          notice = 'This project is open for editing under your account on another device. ' +
-            'Close that editor, or reopen this project and confirm switching devices.';
+          notice = getLanguage() === 'ru'
+            ? 'Проект открыт на другом устройстве под вашей учётной записью. Закройте там форму или откройте здесь снова и подтвердите переключение.'
+            : 'This project is open for editing under your account on another device. ' +
+              'Close that editor, or reopen this project and confirm switching devices.';
         }
       }
       if (result.acquired) {
@@ -1914,15 +1918,17 @@ async function openProjectEditor(project = null) {
         readOnly = true;
         if (!notice) {
           notice = result.sameAccount
-            ? 'This project is open under your account in another session. Close it there to edit here.'
-            : 'This project is being edited by ' + (result.lockedBy || 'another user') +
-              '. It is available in read-only mode until they close the editor.';
+            ? (getLanguage() === 'ru' ? 'Проект открыт в другом сеансе вашей учётной записи. Закройте его там для редактирования здесь.' : 'This project is open under your account in another session. Close it there to edit here.')
+            : (getLanguage() === 'ru'
+              ? `Проект сейчас редактирует ${result.lockedBy || 'другой пользователь'}. До закрытия его формы здесь доступен только просмотр.`
+              : 'This project is being edited by ' + (result.lockedBy || 'another user') +
+                '. It is available in read-only mode until they close the editor.');
         }
       }
     }
   } catch (error) {
     readOnly = true;
-    notice = 'Editing is unavailable: ' + error.message;
+    notice = (getLanguage() === 'ru' ? 'Редактирование недоступно: ' : 'Editing is unavailable: ') + error.message;
     if (project) {
       try {
         const response = await request(`/api/projects/${encodeURIComponent(project.orderNumber)}`);
@@ -1973,7 +1979,7 @@ async function saveProject() {
   const editing = Boolean(state.editingNumber);
   if (editing) {
     if (!projectEditLease || projectEditLease.number !== String(state.editingNumber)) {
-      validation.textContent = 'This project is not locked for editing. Close and reopen it.';
+      validation.textContent = getLanguage() === 'ru' ? 'Проект не закреплён за этим редактором. Закройте и откройте его снова.' : 'This project is not locked for editing. Close and reopen it.';
       validation.classList.remove('hidden');
       return;
     }
@@ -2139,7 +2145,7 @@ async function saveCustomer() {
 }
 
 async function deleteCustomer(c) {
-  if (!confirm(`Delete ${c.customer} / ${c.representative}?`)) return;
+  if (!confirm(getLanguage() === 'ru' ? `Удалить ${c.customer} / ${c.representative}?` : `Delete ${c.customer} / ${c.representative}?`)) return;
   try {
     await request(`/api/customers/${encodeURIComponent(c.id)}`, {method:'DELETE'});
     const r=await request('/api/customers');state.customers=r.customers||[];renderCustomerDialogRows();render();
