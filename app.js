@@ -212,7 +212,7 @@ function setText(el, value) { if (el) el.textContent = escapeText(value); }
 
 function showNotice(message, type = 'ok') {
   const el = $('#notice');
-  setText(el, message);
+  setText(el, t(message));
   el.classList.remove('hidden', 'notice-error');
   if (type === 'error') el.classList.add('notice-error');
   clearTimeout(showNotice.timer);
@@ -227,8 +227,8 @@ function operationKey() {
 function beginBusy(title, detail = 'Please wait. Do not close this page.') {
   if (state.operationBusy) return false;
   state.operationBusy = true;
-  setText($('#busyTitle'), title);
-  setText($('#busyText'), detail);
+  setText($('#busyTitle'), t(title));
+  setText($('#busyText'), t(detail));
   $('#busyOverlay').classList.remove('hidden');
   document.body.classList.add('is-busy');
   $('#saveProjectBtn').disabled = true;
@@ -304,7 +304,7 @@ function clearSession({ backendReady = state.backendReady } = {}) {
 function setLandingStatus(message = '', error = false) {
   const el = $('#landingStatus');
   if (!el) return;
-  setText(el, message);
+  setText(el, t(message));
   el.classList.toggle('error', Boolean(error));
 }
 
@@ -1340,10 +1340,10 @@ function refreshUserAccessSaveButton() {
   if (!button || !status) return;
   const total = userAccessDrafts.size;
   button.disabled = savingUserAccess || total === 0;
-  button.textContent = savingUserAccess ? 'Saving…' : 'Save changes';
+  button.textContent = t(savingUserAccess ? 'Saving…' : 'Save changes');
   status.textContent = total
-    ? total + ' unsaved ' + (total === 1 ? 'user' : 'users')
-    : 'All changes saved';
+    ? (getLanguage() === 'ru' ? `${total} несохранённых изменений` : total + ' unsaved ' + (total === 1 ? 'user' : 'users'))
+    : t('All changes saved');
   status.classList.toggle('unsaved', total > 0);
 }
 
@@ -1416,12 +1416,12 @@ function renderUsers() {
   addCard.className = 'user-add-card';
 
   const nameInput = document.createElement('input');
-  nameInput.placeholder = 'User name';
+  nameInput.placeholder = t('User name');
   nameInput.required = true;
 
   const microsoftInput = document.createElement('input');
   microsoftInput.type = 'email';
-  microsoftInput.placeholder = 'Microsoft account';
+  microsoftInput.placeholder = t('Microsoft account');
   microsoftInput.required = true;
 
   const roleControl = makeRoleChecklist(['pm']);
@@ -1429,7 +1429,7 @@ function renderUsers() {
   const addBtn = document.createElement('button');
   addBtn.className = 'btn btn-primary';
   addBtn.type = 'submit';
-  addBtn.textContent = 'Add user';
+  addBtn.textContent = t('Add user');
 
   addCard.append(nameInput, microsoftInput, roleControl, addBtn);
   addCard.addEventListener('submit', async e => {
@@ -1466,7 +1466,7 @@ function renderUsers() {
   saveAll.id = 'saveUserAccessBtn';
   saveAll.type = 'button';
   saveAll.className = 'btn btn-primary';
-  saveAll.textContent = 'Save changes';
+  saveAll.textContent = t('Save changes');
   saveAll.addEventListener('click', saveUserAccessChanges);
   saveBar.append(status, saveAll);
   container.append(saveBar);
@@ -1510,7 +1510,7 @@ function renderUsers() {
     if (u.microsoftLinked) {
       const linked = document.createElement('span');
       linked.className = 'account-linked';
-      linked.textContent = 'Linked';
+      linked.textContent = t('Linked');
       accountTd.append(linked);
     }
 
@@ -1527,7 +1527,7 @@ function renderUsers() {
       pass = document.createElement('input');
       pass.type = 'password';
       pass.className = 'password-reset';
-      pass.placeholder = 'New emergency PIN';
+      pass.placeholder = t('New emergency PIN');
       pass.value = draft?.password || '';
       passwordTd.append(pass);
     } else {
@@ -1562,7 +1562,7 @@ function renderUsers() {
           userAccessDrafts.delete(u.username);
           await Promise.all([loadUsers(), refreshLookups()]);
           renderUsers();
-          showNotice('User deleted.');
+          showNotice(t('User deleted.'));
         } catch (error) {
           showNotice(error.message, 'error');
         }
