@@ -57,3 +57,14 @@ Change History shows **one clickable list record per saved project change**, reg
 Click the row (or focus it and press Enter/Space) to open a read-only change card with the complete list of user-facing fields modified by that save and their **Before / After** values. Project creation/deletion remains visible as single event cards. No-op edits and technical OneDrive folder-sync events remain hidden. Search covers field labels and old/new values even while cards are closed. Column resizing, 250-record pagination, table zoom and fullscreen remain available.
 
 The backend continues to store one audit record per operation and returns the existing `changes` array. This update affects **frontend presentation only**, with no migration or modification of project/audit data.
+
+
+## English / Russian interface
+
+The authenticated header provides a compact **EN / RU** selector alongside the signed-in user's name. Selecting a language updates menus, project tables, customer/user management tables, project forms, validations, standard status and activity type labels, Change History, System messages and PWA installation instructions. The setting persists **per browser/PWA** in local storage (`hh-register-language-v1`); it is not written to project data or user accounts.
+
+**Data is never translated or migrated.** Status and activity dropdowns keep their original canonical English `value` attributes so backend workflows, permissions, scheduled reminders and project status filters are unchanged. Only the visible option caption is localized. Project and customer names, contact details, manager usernames, work locations, contract/document descriptions, and any other manually entered fields are shown verbatim. Unknown/custom activity type values intentionally remain unchanged rather than being incorrectly translated. History translates field names and only known status/activity enum values, not free-text values. Search can match localized status/activity labels. Changing the language does not reset unsaved project forms or send any API update.
+
+The default interface language is English until the user switches to Russian. The language preference is local to each device. The backend and audit records continue to store the original canonical values.
+
+All text is rendered safely using `textContent` for dynamic user-controlled values.
