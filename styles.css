@@ -744,3 +744,84 @@ tbody tr:hover {
   color: var(--muted); font-size: 12px;
 }
 .change-history-empty { padding: 28px 16px; text-align: center; color: var(--muted); }
+
+
+/* Excel-like resizing in every workspace (project, overdue, customers, history, users).
+   Explicit colgroup widths win over existing CSS default widths; zoom still scales all. */
+.workspace .table-wrap table.resizable-table {
+  table-layout: fixed;
+  max-width: none;
+}
+.workspace .table-wrap .resizable-table th.resizable-column-heading {
+  position: sticky;
+  padding-right: calc(17px * var(--table-scale, 1));
+  overflow: visible;
+}
+.workspace .table-wrap .resizable-table th.resizable-column-heading .column-resize-handle {
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  bottom: 0;
+  right: -5px;
+  width: 12px;
+  padding: 0;
+  background: transparent;
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.workspace .table-wrap .resizable-table th.resizable-column-heading .column-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 25%;
+  bottom: 25%;
+  left: 5px;
+  width: 2px;
+  border-radius: 3px;
+  background: transparent;
+}
+.workspace .table-wrap .resizable-table th.resizable-column-heading .column-resize-handle:hover::after,
+.workspace .table-wrap .resizable-table th.resizable-column-heading .column-resize-handle:focus-visible::after,
+.workspace .table-wrap .resizable-table th.resizable-column-heading .column-resize-handle.is-resizing::after {
+  background: var(--accent);
+}
+.workspace .table-wrap .resizable-table th.resizable-column-heading .column-resize-handle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.column-resize-dragging, .column-resize-dragging * {
+  cursor: col-resize !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+.workspace .table-wrap .resizable-table td {
+  box-sizing: border-box;
+  min-width: 0;
+  width: auto;
+  max-width: none;
+}
+.workspace .table-wrap .resizable-table th {
+  box-sizing: border-box;
+  min-width: 0;
+}
+.workspace .table-wrap .resizable-table td input,
+.workspace .table-wrap .resizable-table td select {
+  max-width: 100%;
+}
+.workspace .table-wrap .resizable-table .overdue-reason { min-width: 0; }
+.workspace .table-wrap .resizable-table.change-history-table td {
+  width: auto;
+  min-width: 0;
+  max-width: none;
+}
+.workspace .reset-widths-btn {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  min-height: 38px;
+  min-width: 38px;
+  flex: 0 0 auto;
+  font-size: 20px;
+  font-weight: 500;
+}
+.workspace .reset-widths-btn:hover { background: #f1ebe5; }
