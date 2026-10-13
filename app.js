@@ -399,10 +399,9 @@ function updateAuthUi() {
   $('#authLoggedIn').classList.toggle('hidden', !loggedIn);
   setText($('#authUserName'), state.user?.username || '');
   setText($('#authUserRole'), rolesLabel(state.user));
-  setText($('#authBtn'),loggedIn?t('Sign out'):t('Sign in'));
+  setText($('#authBtn'),loggedIn?state.user.username:t('Sign in'));
+  $('#authBtn').title=loggedIn?t('Account options'):t('Sign in');
   $('#authBtn').classList.toggle('btn-dark',!loggedIn);
-  $('#projectIdentity').classList.toggle('hidden',!loggedIn);
-  setText($('#projectIdentity'),loggedIn?state.user.username:'');
   renderOtherActiveUsers();
   $('#usersTab').classList.toggle('hidden', !state.user?.canManageUsers);
   $('#systemMessagesTab').classList.toggle('hidden', !state.user?.canManageUsers);
@@ -2769,9 +2768,19 @@ async function logOutProject(){
  showNotice('Signed out.');
 }
 $('#authBtn').addEventListener('click',()=>{
- if(state.user){void logOutProject();return;}
+ if(state.user){$('#projectSignOutDialog').showModal();return;}
  $('#authDialog').showModal();
 });
+$('#projectSignOutConfirm').addEventListener('click',async()=>{
+ $('#projectSignOutConfirm').disabled=true;
+ try{await logOutProject();}finally{
+  $('#projectSignOutConfirm').disabled=false;
+  $('#projectSignOutDialog').close();
+ }
+});
+for(const id of ['#projectSignOutClose','#projectSignOutCancel']){
+ $(id).addEventListener('click',()=>$('#projectSignOutDialog').close());
+}
 $('#microsoftLoginBtn').addEventListener('click', startMicrosoftSignIn);
 $('#landingMicrosoftLoginBtn').addEventListener('click', startMicrosoftSignIn);
 $('#landingEmergencyForm').addEventListener('submit', async e => {
@@ -2931,6 +2940,8 @@ if (languageSelect) {
   });
 }
 setLanguage(getLanguage());
+void fetch('/version.json',{cache:'no-store'}).then(r=>r.ok?r.json():null)
+ .then(data=>{if(/^\\d+\\.\\d+\\.\\d+$/.test(data?.version||'')){const version=document.querySelector('[data-hh-version]');if(version)version.textContent='v'+data.version;}}).catch(()=>{});
 updateAuthUi();
 render();
 
