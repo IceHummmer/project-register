@@ -1,3 +1,4 @@
+import { t } from '../locale.js?v=20261013-i18n-v1';
 // Optional PWA installation. Normal website and HTML file launching remain unchanged.
 let installPrompt = null;
 let installationCompleted = false;
@@ -35,7 +36,7 @@ function installationInstructions() {
 }
 function showInstallHelp() {
   if (!installDialog || !installHelpText) return;
-  installHelpText.textContent = installationInstructions();
+  installHelpText.textContent = t(installationInstructions());
   if (!installDialog.open) installDialog.showModal();
 }
 function handleInstallClick() {
