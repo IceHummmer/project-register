@@ -456,7 +456,7 @@ export function localizeGeneratedUi(root) {
     const raw = el.textContent;
     if (RU[raw.trim()]) el.textContent = t(raw.trim());
   }
-  for (const el of root.querySelectorAll('[placeholder],[title],[aria-label]')) {
+  for (const el of root.querySelectorAll('button[title],button[aria-label],input[placeholder],input[aria-label],select[aria-label]')) {
     for (const attr of ['placeholder','title','aria-label']) {
       const raw = el.getAttribute(attr);
       if (raw && RU[raw]) el.setAttribute(attr,t(raw));
