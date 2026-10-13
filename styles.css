@@ -1004,3 +1004,31 @@ html[data-module-sso="pending"] .hh-module-loading{display:grid}
 .hh-module-loading-spinner{margin:22px auto 0;width:28px;height:28px;border:3px solid #e8ddd1;border-top-color:#7a5a3a;border-radius:50%;animation:login-spin .8s linear infinite}
 @media(max-width:950px){.app-shell{padding:0 16px 38px}.project-brand h1{font-size:25px}.topbar-actions{flex-wrap:wrap}}
 @media(max-width:630px){.app-shell{padding:0 13px 28px}.topbar{flex-wrap:wrap}.project-hh-logo{height:45px;width:34px}.project-brand h1{font-size:20px}.topbar-actions{gap:7px}.hh-identity{max-width:150px}.login-landing-card{padding:25px}.hh-login-topline{margin-bottom:18px}.hh-login-brand h1{font-size:23px}}
+
+
+/* HH module navigation: presence remains directly LEFT of the module button. */
+.hh-module-controls{display:flex;align-items:center;gap:9px;min-width:0;max-width:min(48vw,540px);flex:0 1 auto}
+.hh-module-controls>.hh-module-button{flex:0 0 auto}
+.hh-module-controls .other-active-users{flex:0 1 auto;min-width:0;max-width:320px;display:flex;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;gap:6px}
+.hh-module-controls .other-active-users.hidden{display:none}
+.hh-module-controls .online-peer{max-width:165px;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto}
+.hh-module-controls .online-peer-count{font-weight:800}
+.topbar-actions{min-width:0;gap:10px}
+@media(max-width:1090px){
+ .topbar{flex-direction:column;align-items:stretch}
+ .topbar-actions{width:100%;justify-content:flex-end;flex-wrap:wrap}
+ .hh-module-controls{order:-1;max-width:none;min-width:0;margin-right:auto}
+}
+@media(max-width:620px){
+ .topbar{align-items:stretch;gap:11px}
+ .topbar-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:8px;width:100%;min-width:0}
+ .hh-module-controls{flex:1 0 100%;width:100%;max-width:100%;justify-content:flex-end;gap:7px}
+ .hh-module-controls .other-active-users{flex:1 1 auto;min-width:0;max-width:none;overflow:hidden}
+ .hh-module-controls .online-peer{max-width:min(30vw,118px);min-width:0}
+ .hh-module-controls>.hh-module-button{flex:0 0 auto;min-width:0;max-width:57%;padding:0 10px;font-size:12px}
+ .topbar-actions .btn{width:auto;flex:0 0 auto}
+ .topbar-actions .install-app-btn{flex:0 0 auto;margin-left:0}
+ .topbar-actions>.language-switch{flex:0 0 auto}
+ .topbar-actions>.hh-identity{max-width:100px;flex:0 1 auto;margin-left:auto;font-size:11px}
+ .topbar-actions>#authBtn{width:auto;flex:0 0 auto}
+}
