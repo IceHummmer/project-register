@@ -568,7 +568,9 @@ function filteredProjects() {
       } else if (state.view !== 'all' && projectGroup(p) !== state.view) return false;
       if (state.editableOnly && !p.canEdit) return false;
       if (!q) return true;
-      return Object.values(p).some(v => String(v ?? '').toLowerCase().includes(q));
+      return Object.values(p).some(v => String(v ?? '').toLowerCase().includes(q)) ||
+        fieldText(p.status, 'status').toLocaleLowerCase().includes(q) ||
+        fieldText(p.activityType, 'activityType').toLocaleLowerCase().includes(q);
     })
     .sort(compareProjectNumbers);
 }
@@ -2265,11 +2267,13 @@ async function sendSelectedProjectUpdates() {
     .filter(input => input.checked && !input.disabled && !bulkUpdateMail.accepted.has(input.dataset.number))
     .map(input => input.dataset.number);
   if (!chosen.length) return;
-  const prompt = 'Send ' + chosen.length + ' separate project update email'
-    + (chosen.length === 1 ? '' : 's')
-    + '?\n\nFrom: system@helsinginhitsaus.fi\nTo: the assigned Project Managers'
-    + '\n\nThe recipient email for each project is shown in the table.'
-    + '\nEach selected project will be emailed individually.';
+  const prompt = getLanguage() === 'ru'
+    ? `Отправить ${chosen.length} отдельных запросов на обновление проектов?\n\nОт: system@helsinginhitsaus.fi\nКому: назначенным руководителям проектов\n\nАдрес каждого получателя показан в таблице. Для каждого проекта будет отправлено отдельное письмо.`
+    : 'Send ' + chosen.length + ' separate project update email'
+      + (chosen.length === 1 ? '' : 's')
+      + '?\n\nFrom: system@helsinginhitsaus.fi\nTo: the assigned Project Managers'
+      + '\n\nThe recipient email for each project is shown in the table.'
+      + '\nEach selected project will be emailed individually.';
   if (!confirm(prompt)) return;
   setBulkSending(true);
   let accepted = 0;
@@ -2294,10 +2298,10 @@ async function sendSelectedProjectUpdates() {
         if (!response.accepted) throw new Error('Microsoft 365 did not accept the request.');
         bulkUpdateMail.accepted.add(number);
         accepted++;
-        markMailResult(number, 'accepted', 'Accepted by Microsoft 365 for ' + response.to);
+        markMailResult(number, 'accepted', (getLanguage() === 'ru' ? 'Принято Microsoft 365 для ' : 'Accepted by Microsoft 365 for ') + response.to);
       } catch (error) {
         failed++;
-        markMailResult(number, 'failed', 'Not confirmed: ' + error.message);
+        markMailResult(number, 'failed', (getLanguage() === 'ru' ? 'Не подтверждено: ' : 'Not confirmed: ') + error.message);
       }
     }
     $('#updateRequestsProgress').textContent = getLanguage() === 'ru'
@@ -2804,6 +2808,12 @@ if (languageSelect) {
       if ($('#projectDialog')?.open) {
         updateProjectRequiredFields();
         const readOnly = $('#projectForm').dataset.readOnly === 'true';
+        const existing = state.projects.find(p => String(p.orderNumber) === String(state.editingNumber));
+        setText($('#projectModeLabel'), existing
+          ? t('PROJECT') + ' ' + existing.orderNumber + (readOnly ? ' · ' + t('READ ONLY') : '')
+          : t('NEW PROJECT'));
+        setText($('#projectDialogTitle'),
+          t(existing ? (readOnly ? 'Project details' : 'Edit project') : 'Add project'));
         const closeBtn = $('#projectDialog .modal-actions .action-row [data-close-dialog]');
         if (closeBtn) closeBtn.textContent = t(readOnly ? 'Close' : 'Cancel');
       }
