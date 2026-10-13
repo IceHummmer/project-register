@@ -82,8 +82,7 @@
           </select>
         </label>
         <div class="hh-account-controls">
-          <span id="projectIdentity" class="hh-identity hidden"></span>
-          <button id="authBtn" class="btn btn-dark" type="button">Sign in</button>
+          <button id="authBtn" class="btn hh-account-button" type="button">Sign in</button>
         </div>
       </div>
     </header>
@@ -189,6 +188,20 @@
       </div>
       <p id="systemMessageMetadata" class="system-message-metadata"></p>
       <div id="systemMessageDetails" class="system-message-details"></div>
+    </div>
+  </dialog>
+
+  <dialog id="projectSignOutDialog" class="modal modal-small" aria-labelledby="projectSignOutTitle">
+    <div class="modal-card hh-signout-card">
+      <div class="modal-header">
+        <h3 id="projectSignOutTitle">Sign out?</h3>
+        <button class="icon-btn" type="button" id="projectSignOutClose" aria-label="Close">×</button>
+      </div>
+      <p id="projectSignOutDescription">Do you want to sign out of Project Register?</p>
+      <div class="modal-actions">
+        <button class="btn" type="button" id="projectSignOutCancel">Cancel</button>
+        <button class="btn btn-danger" type="button" id="projectSignOutConfirm">Sign out</button>
+      </div>
     </div>
   </dialog>
 
@@ -385,6 +398,8 @@
       <span id="busyText">The operation is in progress.</span>
     </div>
   </div>
+
+  <footer class="hh-copyright" aria-label="Company copyright">© Helsingin Hitsaus <span aria-hidden="true">·</span> <span data-hh-version>v1.0.0</span></footer>
 
   <script type="module" src="app.js?v=20261013-en-ru-v1"></script>
   <script type="module" src="/pwa/install.js?v=20261013-en-ru-v1"></script>
