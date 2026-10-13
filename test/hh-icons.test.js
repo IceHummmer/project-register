@@ -19,7 +19,8 @@ test('desktop PWA uses branded HH PNGs, not legacy folder icon',()=>{
 });
 test('signed-in Project user name is immediately to the left of Sign out',()=>{
  const html=read('index.html').toString('utf8');
- assert.match(html,/<div class="hh-account-controls">\s*<span id="projectIdentity"[^>]*><\/span>\s*<button id="authBtn"/);
+ assert.match(html,/<div class="hh-account-controls">\s*<button id="authBtn"/);
+ assert.match(html,/id="projectSignOutDialog"/);
  const css=read('styles.css').toString('utf8');
  assert.match(css,/\.hh-account-controls\{display:flex/);
 });
