@@ -1605,6 +1605,7 @@ function render() {
   else if (state.view === 'users') renderUsers();
   else if (state.view === 'system') renderSystemMessages();
   else renderProjectTable();
+  localizeGeneratedUi($('#content'));
 }
 
 function selectedProject() { return state.projects.find(p => p.orderNumber === state.selectedNumber) || null; }
@@ -1619,9 +1620,9 @@ function option(select, value, label = value) {
   const o = document.createElement('option'); o.value = value; o.textContent = label; select.append(o);
 }
 
-function fillSelect(select, values, blank = true) {
+function fillSelect(select, values, blank = true, optionLabel = v => v) {
   const previous = select.value; select.replaceChildren(); if (blank) option(select, '', '—');
-  [...new Set((values || []).filter(Boolean))].forEach(v => option(select, v));
+  [...new Set((values || []).filter(Boolean))].forEach(v => option(select, v, optionLabel(v)));
   if ([...select.options].some(o => o.value === previous)) select.value = previous;
 }
 
@@ -1681,13 +1682,13 @@ function updateProjectRequiredFields() {
     const field = label.querySelector('input[name],select[name]');
     const text = label.querySelector('span');
     if (!field || !text) continue;
-    if (!text.dataset.baseLabel) text.dataset.baseLabel = text.textContent.replace(/\s*\*$/, '');
-    text.textContent = text.dataset.baseLabel + (required.has(field.name) ? ' *' : '');
+    if (!text.dataset.baseLabel) text.dataset.baseLabel = (text.dataset.i18nSource || text.textContent).replace(/\s*\*$/, '');
+    text.textContent = t(text.dataset.baseLabel) + (required.has(field.name) ? ' *' : '');
     field.required = !readOnly && required.has(field.name);
   }
   const needsContact = form.elements.status.value !== 'Rejected';
-  const contactHint = needsContact ? ' Enter at least one contact: phone or email.' : '';
-  $('#projectRequiredHelp').textContent = 'Fields marked * are required.' + contactHint;
+  const contactHint = needsContact ? ' ' + t('Enter at least one contact: phone or email.') : '';
+  $('#projectRequiredHelp').textContent = t('Fields marked * are required.') + contactHint;
 }
 
 function validateProjectForm() {
@@ -1708,19 +1709,19 @@ function validateProjectForm() {
   for (const name of required) {
     if (!String(fields[name]?.value ?? '').trim()) {
       mark(name);
-      errors.push(`${fields[name]?.closest('.field')?.querySelector('span')?.dataset.baseLabel || name} is required`);
+      errors.push(`${t(fields[name]?.closest('.field')?.querySelector('span')?.dataset.baseLabel || name)} ${getLanguage() === 'ru' ? '— обязательное поле' : 'is required'}`);
     }
   }
   if (fields.status.value !== 'Rejected' && !fields.customerPhone.value.trim() && !fields.customerEmail.value.trim()) {
     mark('customerPhone');
     mark('customerEmail');
-    errors.push('Enter a customer phone number or email address');
+    errors.push(t('Enter a customer phone number or email address'));
   }
   if (fields.startPlan.value && fields.endPlan.value && fields.endPlan.value < fields.startPlan.value) {
-    mark('endPlan'); errors.push('Planned end cannot be before planned start');
+    mark('endPlan'); errors.push(t('Planned end cannot be before planned start'));
   }
   if (fields.startFact.value && fields.endFact.value && fields.endFact.value < fields.startFact.value) {
-    mark('endFact'); errors.push('Actual end cannot be before actual start');
+    mark('endFact'); errors.push(t('Actual end cannot be before actual start'));
   }
   if (errors.length) {
     $('#projectValidation').textContent = errors.join('; ');
@@ -1732,8 +1733,8 @@ function validateProjectForm() {
 
 function populateProjectSelects() {
   const f = $('#projectForm').elements;
-  fillSelect(f.status, state.lookups.statuses || ['In plan','Offer Preparation','Awaiting Client Decision','Confirmed','In Progress','Completed','Rejected']);
-  fillSelect(f.activityType, state.lookups.activityTypes || []);
+  fillSelect(f.status, state.lookups.statuses || ['In plan','Offer Preparation','Awaiting Client Decision','Confirmed','In Progress','Completed','Rejected'], true, v => fieldText(v, 'status'));
+  fillSelect(f.activityType, state.lookups.activityTypes || [], true, v => fieldText(v, 'activityType'));
   fillSelect(f.customer, customerNames());
   fillSelect(f.projectManager, state.lookups.projectManagers || []);
   fillSelect(f.currency, state.lookups.currencies || []);
@@ -1780,7 +1781,7 @@ function setProjectDialogMode({ project = null, readOnly = false } = {}) {
   $('#deleteProjectBtn').classList.toggle('hidden', readOnly || !project);
 
   const closeBtn = $('#projectDialog .modal-actions .action-row [data-close-dialog]');
-  if (closeBtn) closeBtn.textContent = readOnly ? 'Close' : 'Cancel';
+  if (closeBtn) closeBtn.textContent = t(readOnly ? 'Close' : 'Cancel');
 }
 
 // Edit leases protect one project at a time. Other projects stay available.
@@ -1889,12 +1890,12 @@ async function openProjectEditor(project = null) {
   setText(
     $('#projectModeLabel'),
     project
-      ? `PROJECT ${project.orderNumber}${readOnly ? ' · READ ONLY' : ''}`
-      : 'NEW PROJECT'
+      ? `${t('PROJECT')} ${project.orderNumber}${readOnly ? ' · ' + t('READ ONLY') : ''}`
+      : t('NEW PROJECT')
   );
   setText(
     $('#projectDialogTitle'),
-    project ? (readOnly ? 'Project details' : 'Edit project') : 'Add project'
+    t(project ? (readOnly ? 'Project details' : 'Edit project') : 'Add project')
   );
 
   $('#projectValidation').classList.add('hidden');
