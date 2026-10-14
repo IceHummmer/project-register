@@ -14,8 +14,8 @@ test('desktop PWA uses branded HH PNGs, not legacy folder icon',()=>{
   assert.equal(png.readUInt32BE(20),Number(ico.sizes.split('x')[1]));
  }
  const html=read('index.html').toString('utf8');
- assert.match(html,/href="\/favicon\.svg\?v=hh-icon-2"/);
- assert.match(html,/href="\/manifest\.webmanifest\?v=hh-icon-2"/);
+ assert.match(html,/href="\/favicon\.svg\?v=hh-ios-3"/);
+ assert.match(html,/href="\/manifest\.webmanifest\?v=hh-ios-3"/);
 });
 test('signed-in Project user name is immediately to the left of Sign out',()=>{
  const html=read('index.html').toString('utf8');
