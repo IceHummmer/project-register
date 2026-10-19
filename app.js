@@ -1,4 +1,5 @@
 import { t, getLanguage, setLanguage, initStaticTranslations, localizeGeneratedUi, fieldText, translateHistoryValue } from './locale.js?v=20261013-i18n-v1';
+import {createRenderUsageWidget} from './render-usage-widget.js';
 
 // Module links use this tab, never window.open. Each backend keeps its own
 // authorization decisions; Microsoft provides SSO only, not shared privileges.
@@ -37,6 +38,10 @@ const state = {
   backendWakeFailed: false
 };
 
+const renderUsageWidget=createRenderUsageWidget({
+ isAdmin:()=>Boolean(state.user?.canManageUsers),language:getLanguage,
+ request:(method,body)=>request('/api/admin/render-usage',{method,...(body?{body}:{})})
+});
 let pendingDeleteChallenge = null;
 let openerFallbackProject = null;
 let openerAttemptSequence = 0;
@@ -526,7 +531,7 @@ async function loadCoreData() {
   lastCoreDataRefreshAt = Date.now();
   if (state.view === 'audit') await loadAudit();
   if (state.view === 'users' && state.user.canManageUsers) await loadUsers();
-  if (state.user.canManageUsers) void loadSystemMessages();
+  if (state.user.canManageUsers){void loadSystemMessages();void renderUsageWidget.load();}
   render();
   // Wake the other Render service in the background; never block this screen.
   void fetch('https://hh-warehouse-api.onrender.com/api/health',{mode:'no-cors',cache:'no-store'}).catch(()=>{});
@@ -1719,6 +1724,7 @@ function render() {
   setText($('#viewSubtitle'), subtitle);
   $('#viewSubtitle').classList.toggle('hidden', !subtitle);
   renderMetrics();
+  renderUsageWidget.render();
   const overdueCount = $('#updatesRequiredCount');
   if (overdueCount) overdueCount.textContent = state.user
     ? String(state.projects.filter(p => overdueProjectInfo(p)).length)
