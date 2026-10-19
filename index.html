@@ -96,6 +96,25 @@
         <div class="hero-metrics" id="metrics"></div>
       </section>
 
+      <section id="hhRenderUsagePanel" class="hh-render-usage hidden" aria-label="Render Free instance hours">
+    <div class="hh-render-usage-details">
+      <div class="hh-render-usage-heading"><strong data-render-text="Render Free hours">Render Free hours</strong>
+        <span class="hh-render-usage-manual" data-render-text="Manual Billing snapshot">Manual Billing snapshot</span></div>
+      <div id="hhRenderUsageSummary" class="hh-render-usage-total">— / 750 h</div>
+      <small id="hhRenderUsageUpdated" class="hh-render-usage-meta">—</small>
+    </div>
+    <form id="hhRenderUsageForm" class="hh-render-usage-form">
+      <label><span data-render-text="Used hours">Used hours</span>
+        <input id="hhRenderUsageUsed" type="number" min="0" max="750" step="0.01" inputmode="decimal" required placeholder="0.00" />
+      </label>
+      <button type="submit" id="hhRenderUsageSave" class="hh-render-usage-save" data-render-text="Update">Update</button>
+    </form>
+    <div class="hh-render-usage-help">
+      <a href="https://dashboard.render.com/billing" target="_blank" rel="noopener noreferrer" data-render-text="Render Billing ↗">Render Billing ↗</a>
+      <small data-render-text="Enter the used Free instance hours shown in Render Billing. This is shared by all services in your workspace.">Enter the used Free instance hours shown in Render Billing. This is shared by all services in your workspace.</small>
+    </div>
+  </section>
+
       <nav class="tabs" aria-label="Register views">
         <button class="tab active" data-view="all">All Projects</button>
         <button class="tab" data-view="plan">Projects in Plan</button>
