@@ -1051,3 +1051,29 @@ html[data-module-sso="pending"] .hh-module-loading{display:grid}
 .hh-copyright{text-align:center;color:#9c8e80;font-size:11px;letter-spacing:.03em;padding:18px 12px 24px}
 .hh-copyright [data-hh-version]{font-variant-numeric:tabular-nums;font-weight:700;color:#80654d}
 @media(max-width:620px){.topbar-actions>.hh-account-controls{max-width:42%;margin-left:auto}.hh-account-controls>.hh-account-button{max-width:100%;padding:0 10px;font-size:11px;min-width:0}}
+
+/* Admin-only Render Billing meter shared by Project and Warehouse Registers. */
+.hh-render-usage{display:flex;align-items:center;gap:18px;padding:15px 18px;
+  margin:0 0 16px;background:#fffaf5;border:1px solid #e3d5c8;border-radius:13px;
+  box-shadow:0 3px 12px rgba(60,43,30,.04);font-size:12px;min-width:0;flex-wrap:wrap}
+.hh-render-usage.hidden{display:none!important}
+.hh-render-usage-details{min-width:220px;flex:1 1 235px}
+.hh-render-usage-heading{display:flex;gap:10px;flex-wrap:wrap;align-items:center;color:#3b3028}
+.hh-render-usage-heading strong{font-weight:800;font-size:13px}
+.hh-render-usage-manual{font-size:10px;color:#87694e;background:#f1e6db;padding:3px 7px;border-radius:99px}
+.hh-render-usage-total{font-size:24px;letter-spacing:-.035em;font-weight:800;color:#322920;line-height:1.55;font-variant-numeric:tabular-nums}
+.hh-render-usage-meta{font-size:11px;color:#816e5c;display:block}
+.hh-render-usage-form{display:flex;align-items:end;gap:8px;flex:0 0 auto}
+.hh-render-usage-form label{display:grid;gap:5px;font-size:11px;color:#5d5147;font-weight:700}
+.hh-render-usage-form input{max-width:116px;min-height:38px;padding:7px 10px;
+ background:white;color:#302820;border-radius:9px;border:1px solid #d8cabe;font-size:13px}
+.hh-render-usage-save{border:1px solid #816245;background:#7a5a3a;color:white;min-height:38px;
+ padding:0 12px;border-radius:9px;font-weight:700;cursor:pointer}
+.hh-render-usage-save:disabled{opacity:.5;cursor:wait}
+.hh-render-usage-help{flex:1 1 245px;display:grid;gap:3px;line-height:1.4;min-width:0}
+.hh-render-usage-help a{font-size:12px;font-weight:700;color:#76522f}
+.hh-render-usage-help small{font-size:11px;color:#847365}
+@media(max-width:680px){.hh-render-usage{padding:14px;gap:11px}
+ .hh-render-usage-details,.hh-render-usage-form,.hh-render-usage-help{flex:1 1 100%}
+ .hh-render-usage-form input{max-width:150px}
+}
